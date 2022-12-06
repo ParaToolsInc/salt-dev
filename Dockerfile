@@ -90,12 +90,12 @@ RUN apt-get update && \
         vim emacs-nox libz-dev libtinfo-dev make binutils cmake git && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy local files to stage 2 image.
-COPY configure.sh Dockerfile makefile.base README.md /tmp/salt/
-COPY config_files /tmp/salt/config_files
-COPY include /tmp/salt/include
-COPY src /tmp/salt/src
-COPY tests /tmp/salt/tests
+# # Copy local files to stage 2 image.
+# COPY configure.sh Dockerfile makefile.base README.md /tmp/salt/
+# COPY config_files /tmp/salt/config_files
+# COPY include /tmp/salt/include
+# COPY src /tmp/salt/src
+# COPY tests /tmp/salt/tests
 
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
