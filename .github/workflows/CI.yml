@@ -59,6 +59,7 @@ jobs:
           context: .
           file: ./Dockerfile
           pull: true
+          build-args: CI=true
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
           cache-from: type=gha

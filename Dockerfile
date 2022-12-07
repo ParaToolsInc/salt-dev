@@ -21,6 +21,7 @@ EOC
 # use ccache (make it appear in path earlier then /usr/bin/gcc etc)
 RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
 
+ARG CI=false
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
   echo "\$CI = $CI"
