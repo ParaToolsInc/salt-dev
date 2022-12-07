@@ -26,7 +26,7 @@ ARG CI=false
 RUN --mount=type=cache,target=/git <<EOC
   echo "\$CI = $CI"
   env | grep -i github
-  if ${CI:=false}; then
+  if ${CI:-false}; then
     # Github CI never seems to use the cached git directory :-[
     echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required"
     export SHALLOW='--depth=1'
@@ -76,9 +76,9 @@ RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
   cd /llvm-project/llvm/build
   git branch
   # Actually do the build
-  # ninja install-llvm-libraries install-llvm-headers \
-  #   install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-  #   install-clang-resource-headers install-llvm-config install-cmake-exports
+  ninja install-llvm-libraries install-llvm-headers \
+    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
+    install-clang-resource-headers install-llvm-config install-cmake-exports
 EOC
 
 RUN --mount=type=cache,target=/ccache/ ccache -s
@@ -86,11 +86,11 @@ RUN --mount=type=cache,target=/ccache/ ccache -s
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
 COPY patches/LLVMExports.cmake.patch .
-# RUN <<EOC
-#   find /tmp/llvm -name '*.cmake' -type f
-#   patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
-#   patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
-# EOC
+RUN <<EOC
+  find /tmp/llvm -name '*.cmake' -type f
+  patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
+  patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
+EOC
 
 # Stage 2. Produce a minimal release image with build results.
 FROM launcher.gcr.io/google/debian11:latest
@@ -109,7 +109,7 @@ RUN for p in clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p; 
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
-# COPY --from=builder /tmp/llvm/ /usr/local/
+COPY --from=builder /tmp/llvm/ /usr/local/
 
 ENV CCACHE_DIR=/home/salt/ccache
 RUN mkdir -p $CCACHE_DIR
