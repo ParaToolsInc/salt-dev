@@ -9,11 +9,17 @@ RUN grep deb /etc/apt/sources.list | \
     sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
 
 ENV CCACHE_DIR=/ccache
+RUN --mount=type=cache,target=/ccache/ ls -l $CCACHE_DIR
+
 # Install compiler, cmake, git, ccache etc.
-RUN mkdir $CCACHE_DIR || true && ls -l $CCACHE_DIR && apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates \
-           build-essential cmake ccache make python3 zlib1g wget unzip git && \
-    rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt <<EOC
+  apt-get update
+  apt-get install -y --no-install-recommends ca-certificates \
+    build-essential cmake ccache make python3 zlib1g wget unzip git
+EOC
+
+# use ccache (make it appear in path earlier then /usr/bin/gcc etc)
+RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
 
 # Install a newer ninja release. It seems the older version in the debian repos
 # randomly crashes when compiling llvm.
@@ -23,15 +29,29 @@ RUN wget "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-l
     unzip ninja-linux.zip -d /usr/local/bin && \
     rm ninja-linux.zip
 
-# Clone LLVM repo
-RUN git clone --single-branch --depth=1 --branch=release/14.x --filter=blob:none https://github.com/llvm/llvm-project.git && \
-    cd llvm-project/llvm && mkdir build
-
-# use ccache (make it appear in path earlier then /usr/bin/gcc etc)
-RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
+# Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
+RUN --mount=type=cache,target=/git <<EOC
+  if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
+  then
+    echo "WARNING: Using cached llvm git repository and pulling updates"
+    echo "gitdir: /git/llvm-project.git" > llvm-project/.git
+    git -C llvm-project reset --hard HEAD
+  else
+    echo "Cloning a fresh LLVM repository"
+    git clone --separate-git-dir=/git/llvm-project.git \
+      --single-branch \
+      --branch=release/14.x \
+      --filter=blob:none \
+      https://github.com/llvm/llvm-project.git
+  fi
+  cd llvm-project/llvm
+  mkdir build
+  git status
+EOC
 
 # CMake llvm build
-RUN --mount=type=cache,target=/ccache/ cmake -GNinja \
+RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git \
+  cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -39,15 +59,20 @@ RUN --mount=type=cache,target=/ccache/ cmake -GNinja \
     -DLLVM_TARGETS_TO_BUILD=X86 \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
-RUN --mount=type=cache,target=/ccache/ ccache -s
-
 # Build libraries, headers, and binaries
-RUN --mount=type=cache,target=/ccache/ ccache -s nproc --all || lscpu || true && \
-    cd /llvm-project/llvm/build && git branch && \
-    ninja install-llvm-libraries install-llvm-headers \
-        install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-        install-clang-resource-headers install-llvm-config install-cmake-exports ; \
-    find /tmp/llvm -name '*.cmake' -type f
+RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
+  # Do build
+  # First get info
+  ccache -s
+  nproc --all || lscpu || true
+  cd /llvm-project/llvm/build
+  git branch
+  # Actually do the build
+  ninja install-llvm-libraries install-llvm-headers \
+    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
+    install-clang-resource-headers install-llvm-config install-cmake-exports
+  find /tmp/llvm -name '*.cmake' -type f
+EOC
 
 RUN --mount=type=cache,target=/ccache/ ccache -s
 
