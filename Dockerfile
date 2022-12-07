@@ -71,7 +71,6 @@ RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
   ninja install-llvm-libraries install-llvm-headers \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers install-llvm-config install-cmake-exports
-  find /tmp/llvm -name '*.cmake' -type f
 EOC
 
 RUN --mount=type=cache,target=/ccache/ ccache -s
@@ -80,6 +79,7 @@ RUN --mount=type=cache,target=/ccache/ ccache -s
 COPY patches/ClangTargets.cmake.patch .
 COPY patches/LLVMExports.cmake.patch .
 RUN <<EOC
+  find /tmp/llvm -name '*.cmake' -type f
   patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
   patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
 EOC
@@ -89,17 +89,12 @@ FROM launcher.gcr.io/google/debian11:latest
 LABEL maintainer "ParaTools Inc."
 
 # Install packages for minimal useful image.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libstdc++-10-dev \
-        vim emacs-nox libz-dev libtinfo-dev make binutils cmake git && \
-    rm -rf /var/lib/apt/lists/*
-
-# # Copy local files to stage 2 image.
-# COPY configure.sh Dockerfile makefile.base README.md /tmp/salt/
-# COPY config_files /tmp/salt/config_files
-# COPY include /tmp/salt/include
-# COPY src /tmp/salt/src
-# COPY tests /tmp/salt/tests
+RUN <<EOC
+  apt-get update
+  apt-get install -y --no-install-recommends libstdc++-10-dev \
+    vim emacs-nox libz-dev libtinfo-dev make binutils cmake git
+  rm -rf /var/lib/apt/lists/*
+EOC
 
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
