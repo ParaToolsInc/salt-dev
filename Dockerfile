@@ -45,8 +45,8 @@ RUN --mount=type=cache,target=/git <<EOC
       https://github.com/llvm/llvm-project.git
   fi
   cd llvm-project/llvm
-  mkdir build
   git status
+  mkdir build
 EOC
 
 # CMake llvm build
