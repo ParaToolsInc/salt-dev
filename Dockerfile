@@ -23,6 +23,8 @@ RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/
 
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
+  echo "\$CI = $CI"
+  env | grep -i github
   if ${CI:=false}; then
     # Github CI never seems to use the cached git directory :-[
     echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required"

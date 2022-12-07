@@ -58,9 +58,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
-          cache-from: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache
-          cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache,mode=max
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
