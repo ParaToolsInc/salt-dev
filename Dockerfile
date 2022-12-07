@@ -23,6 +23,11 @@ RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/
 
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
+  if ${CI:=false}; then
+    # Github CI never seems to use the cached git directory :-[
+    echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required"
+    export SHALLOW='--depth=1'
+  fi
   if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
   then
     echo "WARNING: Using cached llvm git repository and pulling updates"
@@ -31,7 +36,7 @@ RUN --mount=type=cache,target=/git <<EOC
   else
     echo "Cloning a fresh LLVM repository"
     git clone --separate-git-dir=/git/llvm-project.git \
-      --single-branch \
+      ${SHALLOW:-} --single-branch \
       --branch=release/14.x \
       --filter=blob:none \
       https://github.com/llvm/llvm-project.git
