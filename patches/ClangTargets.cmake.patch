@@ -1,0 +1,11 @@
+--- /tmp/llvm/lib/cmake/clang/ClangTargets.cmake        2022-11-04 14:48:01.627471510 +0000
++++ /tmp/llvm/lib/cmake/clang/ClangTargets.cmake.b      2022-11-04 14:57:45.345397332 +0000
+@@ -710,7 +710,7 @@
+ foreach(target ${_IMPORT_CHECK_TARGETS} )
+   foreach(file ${_IMPORT_CHECK_FILES_FOR_${target}} )
+     if(NOT EXISTS "${file}" )
+-      message(FATAL_ERROR "The imported target \"${target}\" references the file
++      message(DEBUG "The imported target \"${target}\" references the file
+    \"${file}\"
+ but this file does not exist.  Possible reasons include:
+ * The file was deleted, renamed, or moved to another location.

@@ -1,0 +1,11 @@
+--- /tmp/llvm/lib/cmake/llvm/LLVMExports.cmake  2022-11-04 14:15:29.967057438 +0000
++++ /tmp/llvm/lib/cmake/llvm/LLVMExports.cmake.b        2022-11-04 13:55:14.935207352 +0000
+@@ -825,7 +825,7 @@
+ foreach(target ${_IMPORT_CHECK_TARGETS} )
+   foreach(file ${_IMPORT_CHECK_FILES_FOR_${target}} )
+     if(NOT EXISTS "${file}" )
+-      message(FATAL_ERROR "The imported target \"${target}\" references the file
++      message(DEBUG "The imported target \"${target}\" references the file
+    \"${file}\"
+ but this file does not exist.  Possible reasons include:
+ * The file was deleted, renamed, or moved to another location.

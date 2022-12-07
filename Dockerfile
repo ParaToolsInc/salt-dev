@@ -8,8 +8,9 @@ LABEL maintainer "ParaTools Inc."
 RUN grep deb /etc/apt/sources.list | \
     sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
 
+ENV CCACHE_DIR=/ccache
 # Install compiler, cmake, git, ccache etc.
-RUN apt-get update && \
+RUN mkdir $CCACHE_DIR || true && ls -l $CCACHE_DIR && apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates \
            build-essential cmake ccache make python3 zlib1g wget unzip git && \
     rm -rf /var/lib/apt/lists/*
@@ -51,33 +52,11 @@ RUN --mount=type=cache,target=/ccache/ ccache -s nproc --all || lscpu || true &&
 RUN --mount=type=cache,target=/ccache/ ccache -s
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
+COPY patches/ClangTargets.cmake.patch .
+COPY patches/LLVMExports.cmake.patch .
 RUN <<EOC
-  patch --strip 1 --ignore-whitespace << 'EOF'
---- /tmp/llvm/lib/cmake/llvm/LLVMExports.cmake  2022-11-04 14:15:29.967057438 +0000
-+++ /tmp/llvm/lib/cmake/llvm/LLVMExports.cmake.b        2022-11-04 13:55:14.935207352 +0000
-@@ -825,7 +825,7 @@
- foreach(target ${_IMPORT_CHECK_TARGETS} )
-   foreach(file ${_IMPORT_CHECK_FILES_FOR_${target}} )
-     if(NOT EXISTS "${file}" )
--      message(FATAL_ERROR "The imported target \"${target}\" references the file
-+      message(DEBUG "The imported target \"${target}\" references the file
-    \"${file}\"
- but this file does not exist.  Possible reasons include:
- * The file was deleted, renamed, or moved to another location.
-EOF
-  patch --strip 1 --ignore-whitespace << 'EOF'
---- /tmp/llvm/lib/cmake/clang/ClangTargets.cmake        2022-11-04 14:48:01.627471510 +0000
-+++ /tmp/llvm/lib/cmake/clang/ClangTargets.cmake.b      2022-11-04 14:57:45.345397332 +0000
-@@ -710,7 +710,7 @@
- foreach(target ${_IMPORT_CHECK_TARGETS} )
-   foreach(file ${_IMPORT_CHECK_FILES_FOR_${target}} )
-     if(NOT EXISTS "${file}" )
--      message(FATAL_ERROR "The imported target \"${target}\" references the file
-+      message(DEBUG "The imported target \"${target}\" references the file
-    \"${file}\"
- but this file does not exist.  Possible reasons include:
- * The file was deleted, renamed, or moved to another location.
-EOF
+  patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
+  patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
 EOC
 
 # Stage 2. Produce a minimal release image with build results.
