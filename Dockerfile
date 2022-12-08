@@ -21,16 +21,16 @@ EOC
 # use ccache (make it appear in path earlier then /usr/bin/gcc etc)
 RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
 
-# Install a newer ninja release. It seems the older version in the debian repos
-# randomly crashes when compiling llvm.
-RUN wget "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip" && \
-    echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
-        | sha256sum -c  && \
-    unzip ninja-linux.zip -d /usr/local/bin && \
-    rm ninja-linux.zip
-
+ARG CI=false
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
+  echo "\$CI = $CI"
+  env | grep -i github
+  if ${CI:-false}; then
+    # Github CI never seems to use the cached git directory :-[
+    echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required"
+    export SHALLOW='--depth=1'
+  fi
   if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
   then
     echo "WARNING: Using cached llvm git repository and pulling updates"
@@ -39,15 +39,23 @@ RUN --mount=type=cache,target=/git <<EOC
   else
     echo "Cloning a fresh LLVM repository"
     git clone --separate-git-dir=/git/llvm-project.git \
-      --single-branch \
+      ${SHALLOW:-} --single-branch \
       --branch=release/14.x \
       --filter=blob:none \
       https://github.com/llvm/llvm-project.git
   fi
   cd llvm-project/llvm
-  mkdir build
   git status
+  mkdir build
 EOC
+
+# Install a newer ninja release. It seems the older version in the debian repos
+# randomly crashes when compiling llvm.
+RUN wget "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip" && \
+    echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
+        | sha256sum -c  && \
+    unzip ninja-linux.zip -d /usr/local/bin && \
+    rm  ninja-linux.zip
 
 # CMake llvm build
 RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git \
