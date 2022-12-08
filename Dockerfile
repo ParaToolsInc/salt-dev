@@ -5,14 +5,18 @@ LABEL maintainer "ParaTools Inc."
 
 # Install build dependencies of llvm.
 # First, Update the apt's source list and include the sources of the packages.
-RUN grep deb /etc/apt/sources.list | \
-    sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
+# Improve caching too
+RUN <<EOC
+  grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
+  rm -f /etc/apt/apt.conf.d/docker-clean
+  echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+EOC
 
 ENV CCACHE_DIR=/ccache
 RUN --mount=type=cache,target=/ccache/ ls -l $CCACHE_DIR
 
 # Install compiler, cmake, git, ccache etc.
-RUN --mount=type=cache,target=/var/cache/apt <<EOC
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends ca-certificates \
     build-essential cmake ccache make python3 zlib1g wget unzip git
@@ -24,6 +28,7 @@ RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/
 ARG CI=false
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
+  echo "Checking out LLVM"
   echo "\$CI = $CI"
   env | grep -i github
   if ${CI:-false}; then
@@ -98,14 +103,21 @@ LABEL maintainer "ParaTools Inc."
 
 # Install packages for minimal useful image.
 RUN <<EOC
+  rm -f /etc/apt/apt.conf.d/docker-clean
+  echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+EOC
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends libstdc++-10-dev \
-    ccache libz-dev libtinfo-dev make binutils cmake git
+    ccache libz-dev libtinfo-dev make binutils cmake git \
+    gcc g++ wget
   rm -rf /var/lib/apt/lists/*
 EOC
 
 RUN for p in clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
 
+# Get ninja from builder
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
