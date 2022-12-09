@@ -62,8 +62,10 @@ RUN wget "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-l
     unzip ninja-linux.zip -d /usr/local/bin && \
     rm  ninja-linux.zip
 
-# CMake llvm build
-RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git \
+# Configure and build LLVM/Clang components needed by SALT
+RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
+  nproc --all || lscpu || true
+  ccache -s
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
@@ -72,21 +74,17 @@ RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git \
     -DLLVM_TARGETS_TO_BUILD=X86 \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
-# Build libraries, headers, and binaries
-RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
+  # Build libraries, headers, and binaries
   # Do build
-  # First get info
   ccache -s
-  nproc --all || lscpu || true
   cd /llvm-project/llvm/build
   git branch
   # Actually do the build
   ninja install-llvm-libraries install-llvm-headers \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers install-llvm-config install-cmake-exports
+  ccache -s
 EOC
-
-RUN --mount=type=cache,target=/ccache/ ccache -s
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
