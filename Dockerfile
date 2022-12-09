@@ -130,3 +130,21 @@ RUN <<EOC
 EOC
 
 WORKDIR /home/salt/
+
+# Download and install TAU
+# http://tau.uoregon.edu/tau.tgz
+# http://fs.paratools.com/tau-mirror/tau.tgz
+# http://fs.paratools.com/tau-nightly.tgz
+RUN --mount=type=cache,target=/home/salt/ccache <<EOC
+  ccache -s
+  wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
+  tar xzvf tau.tgz
+  cd tau*
+  ./installtau -prefix=/usr/local/ \
+    -bfd=download -unwind=download -dwarf=download -pthread -iowrapper -j
+  cd ..
+  rm -rf tau*
+  ccache -s
+EOC
+
+ENV PATH="${PATH}:/usr/local/x86_64/bin"
