@@ -115,14 +115,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   rm -rf /var/lib/apt/lists/*
 EOC
 
-RUN for p in clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
-
 # Get ninja from builder
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
-COPY --from=builder /tmp/llvm/ /usr/local/
+COPY --from=builder /tmp/llvm/ /usr/
 
+# Setup ccache
 ENV CCACHE_DIR=/home/salt/ccache
-RUN mkdir -p $CCACHE_DIR
+RUN <<EOC
+  for p in gcc g++ clang clang++ cc c++; do
+    ln -vs /usr/bin/ccache /usr/local/bin/$p
+  done
+EOC
+
 WORKDIR /home/salt/
