@@ -30,11 +30,16 @@ ARG CI=false
 RUN --mount=type=cache,target=/git <<EOC
   echo "Checking out LLVM."
   echo "\$CI = $CI"
-  env | grep -i github
+  # If the job is killed during a git operation the cache might be broken
+  if [ -f /git/llvm-project.git/index.lock ]; then
+    echo "index.lock file found--git repo might be in a broken state."
+    echo "Removing /git/llvm-project.git and forcing a new checkout!"
+    rm -rf /git/llvm-project.git
+  fi
   if ${CI:-false}; then
     # Github CI never seems to use the cached git directory :-[
     echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required."
-    export SHALLOW='--depth=1'
+#    export SHALLOW='--depth=1'
   fi
   if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
   then
@@ -84,6 +89,7 @@ RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers install-llvm-config install-cmake-exports
   ccache -s
+  git branch
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
@@ -105,7 +111,7 @@ RUN <<EOC
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+RUN <<EOC
   apt-get update
   apt-get install -y --no-install-recommends libstdc++-10-dev \
     ccache libz-dev libtinfo-dev make binutils cmake git \
