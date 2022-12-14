@@ -2,6 +2,8 @@ name: ci
 # See https://docs.docker.com/build/ci/github-actions/examples
 
 on:
+  schedule:
+    - cron: "41 1 * * */1"
   push:
     branches:
       - "**"
@@ -11,7 +13,7 @@ on:
     branches:
       - "main"
 jobs:
-  build:
+  build-base:
     runs-on: ubuntu-latest
     steps:
       -
@@ -25,13 +27,14 @@ jobs:
             ghcr.io/paratoolsinc/salt-dev
           # generate Docker tags based on the following events/attributes
           tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
-          # type=schedule
+            type=schedule
       -
         name: Checkout
         uses: actions/checkout@v3

@@ -1,4 +1,6 @@
-.git
-.github
+/.git/
+Dockerfile
+**/.DS_Store
+/.github/
 *.md
 LICENSE

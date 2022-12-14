@@ -5,14 +5,18 @@ LABEL maintainer "ParaTools Inc."
 
 # Install build dependencies of llvm.
 # First, Update the apt's source list and include the sources of the packages.
-RUN grep deb /etc/apt/sources.list | \
-    sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
+# Improve caching too
+RUN <<EOC
+  grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
+  rm -f /etc/apt/apt.conf.d/docker-clean
+  echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+EOC
 
 ENV CCACHE_DIR=/ccache
 RUN --mount=type=cache,target=/ccache/ ls -l $CCACHE_DIR
 
 # Install compiler, cmake, git, ccache etc.
-RUN --mount=type=cache,target=/var/cache/apt <<EOC
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends ca-certificates \
     build-essential cmake ccache make python3 zlib1g wget unzip git
@@ -24,11 +28,12 @@ RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/
 ARG CI=false
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
+  echo "Checking out LLVM."
   echo "\$CI = $CI"
   env | grep -i github
   if ${CI:-false}; then
     # Github CI never seems to use the cached git directory :-[
-    echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required"
+    echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required."
     export SHALLOW='--depth=1'
   fi
   if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
@@ -57,8 +62,10 @@ RUN wget "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-l
     unzip ninja-linux.zip -d /usr/local/bin && \
     rm  ninja-linux.zip
 
-# CMake llvm build
-RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git \
+# Configure and build LLVM/Clang components needed by SALT
+RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
+  nproc --all || lscpu || true
+  ccache -s
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
@@ -67,21 +74,17 @@ RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git \
     -DLLVM_TARGETS_TO_BUILD=X86 \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
-# Build libraries, headers, and binaries
-RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
+  # Build libraries, headers, and binaries
   # Do build
-  # First get info
   ccache -s
-  nproc --all || lscpu || true
   cd /llvm-project/llvm/build
   git branch
   # Actually do the build
   ninja install-llvm-libraries install-llvm-headers \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers install-llvm-config install-cmake-exports
+  ccache -s
 EOC
-
-RUN --mount=type=cache,target=/ccache/ ccache -s
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
@@ -98,19 +101,48 @@ LABEL maintainer "ParaTools Inc."
 
 # Install packages for minimal useful image.
 RUN <<EOC
+  rm -f /etc/apt/apt.conf.d/docker-clean
+  echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
+EOC
+
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends libstdc++-10-dev \
-    ccache libz-dev libtinfo-dev make binutils cmake git
+    ccache libz-dev libtinfo-dev make binutils cmake git \
+    gcc g++ wget
   rm -rf /var/lib/apt/lists/*
 EOC
 
-RUN for p in clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
-
+# Get ninja from builder
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
-COPY --from=builder /tmp/llvm/ /usr/local/
+COPY --from=builder /tmp/llvm/ /usr/
 
+# Setup ccache
 ENV CCACHE_DIR=/home/salt/ccache
-RUN mkdir -p $CCACHE_DIR
+RUN <<EOC
+  for p in gcc g++ clang clang++ cc c++; do
+    ln -vs /usr/bin/ccache /usr/local/bin/$p
+  done
+EOC
+
 WORKDIR /home/salt/
+
+# Download and install TAU
+# http://tau.uoregon.edu/tau.tgz
+# http://fs.paratools.com/tau-mirror/tau.tgz
+# http://fs.paratools.com/tau-nightly.tgz
+RUN --mount=type=cache,target=/home/salt/ccache <<EOC
+  ccache -s
+  wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
+  tar xzvf tau.tgz
+  cd tau*
+  ./installtau -prefix=/usr/local/ \
+    -bfd=download -unwind=download -dwarf=download -pthread -iowrapper -j
+  cd ..
+  rm -rf tau*
+  ccache -s
+EOC
+
+ENV PATH="${PATH}:/usr/local/x86_64/bin"
