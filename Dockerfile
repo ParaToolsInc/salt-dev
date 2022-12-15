@@ -61,11 +61,13 @@ EOC
 
 # Install a newer ninja release. It seems the older version in the debian repos
 # randomly crashes when compiling llvm.
-RUN wget "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip" && \
-    echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
-        | sha256sum -c  && \
-    unzip ninja-linux.zip -d /usr/local/bin && \
-    rm  ninja-linux.zip
+RUN <<EOC
+  wget --no-verbose "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip"
+  echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
+    | sha256sum -c
+  unzip ninja-linux.zip -d /usr/local/bin
+  rm  ninja-linux.zip
+EOC
 
 # Configure and build LLVM/Clang components needed by SALT
 RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
