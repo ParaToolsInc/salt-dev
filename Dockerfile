@@ -111,7 +111,7 @@ RUN <<EOC
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
 
-RUN <<EOC
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends libstdc++-10-dev \
     ccache libz-dev libtinfo-dev make binutils cmake git \
@@ -141,10 +141,13 @@ WORKDIR /home/salt/
 # http://fs.paratools.com/tau-nightly.tgz
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   ccache -s
+  echo "verbose=off" > ~/.wgetrc
   wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
   tar xzvf tau.tgz
   cd tau*
-  ./installtau -prefix=/usr/local/ \
+  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++\
+    -bfd=download -unwind=download -dwarf=download -pthread -iowrapper -j
+  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++\
     -bfd=download -unwind=download -dwarf=download -pthread -iowrapper -j
   cd ..
   rm -rf tau*
