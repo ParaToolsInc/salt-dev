@@ -72,6 +72,8 @@ EOC
 # Configure and build LLVM/Clang components needed by SALT
 RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
   nproc --all || lscpu || true
+  pwd
+  git -C /llvm-project status || exit 1
   ccache -s
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
@@ -85,13 +87,12 @@ RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
   # Do build
   ccache -s
   cd /llvm-project/llvm/build
-  git branch
   # Actually do the build
   ninja install-llvm-libraries install-llvm-headers \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers install-llvm-config install-cmake-exports
   ccache -s
-  git branch
+  git -C /llvm-project status
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
