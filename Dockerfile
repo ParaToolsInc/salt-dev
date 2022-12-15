@@ -44,8 +44,8 @@ RUN --mount=type=cache,target=/git <<EOC
   if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
   then
     echo "WARNING: Using cached llvm git repository and pulling updates"
-    echo "gitdir: /git/llvm-project.git" > llvm-project/.git
-    git -C llvm-project reset --hard HEAD
+    cp -r /git/llvm-project.git /llvm-project/.git
+    git -C /llvm-project reset --hard HEAD
   else
     echo "Cloning a fresh LLVM repository"
     git clone --separate-git-dir=/git/llvm-project.git \
@@ -53,10 +53,24 @@ RUN --mount=type=cache,target=/git <<EOC
       --branch=release/14.x \
       --filter=blob:none \
       https://github.com/llvm/llvm-project.git
+    if [ -f /llvm-project/.git ]; then
+      rm -f /llvm-project/.git
+    fi
+    cp -r /git/llvm-project.git /llvm-project/.git
   fi
   cd llvm-project/llvm
-  git status
   mkdir build
+  ls -lad /git/llvm-project.git
+  ls -la /llvm-project/.git
+  if [ -f /llvm-project/.git ]; then
+    echo "Contents of .git: "
+    cat /llvm-project/.git
+    real_git_dir="$(cat /llvm-project/.git | cut -d ' ' -f2)"
+    echo "Contents of $real_git_dir :"
+    ls -lad "$real_git_dir"
+    echo "$real_git_dir"/*
+  fi
+  git status
 EOC
 
 # Install a newer ninja release. It seems the older version in the debian repos
