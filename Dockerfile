@@ -87,7 +87,9 @@ EOC
 RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
   nproc --all || lscpu || true
   pwd
-  git -C /llvm-project status || exit 1
+  ls -lad /git/* || echo "WARNING: /git/ is empyt!!"
+  ls -la /git/llvm-project.git || echo "WARNING: no /git/llvm-project.git!!!!"
+  git -C /llvm-project status
   ccache -s
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
