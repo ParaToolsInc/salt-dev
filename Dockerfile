@@ -84,12 +84,13 @@ RUN <<EOC
 EOC
 
 # Configure and build LLVM/Clang components needed by SALT
-RUN --mount=type=cache,target=/ccache/ --mount=type=cache,target=/git <<EOC
+RUN --mount=type=cache,target=/ccache/ <<EOC
   nproc --all || lscpu || true
   pwd
-  ls -lad /git/* || echo "WARNING: /git/ is empyt!!"
-  ls -la /git/llvm-project.git || echo "WARNING: no /git/llvm-project.git!!!!"
-  git -C /llvm-project status
+  if ! git -C /llvm-project status ; then
+    echo "llvm-project git repository missing or broken!!!"
+    exit 1
+  fi
   ccache -s
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
