@@ -134,7 +134,7 @@ EOC
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends libstdc++-10-dev \
-    ccache libz-dev libtinfo-dev make binutils cmake git \
+    ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
     gcc g++ wget
   rm -rf /var/lib/apt/lists/*
 EOC
