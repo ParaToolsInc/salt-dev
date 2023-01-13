@@ -166,9 +166,9 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   tar xzvf tau.tgz
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++\
-    -bfd=download -unwind=download -dwarf=download -pthread -iowrapper -j
+    -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++\
-    -bfd=download -unwind=download -dwarf=download -pthread -iowrapper -j
+    -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
   cd ..
   rm -rf tau*
   ccache -s
