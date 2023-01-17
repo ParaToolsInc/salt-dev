@@ -1,5 +1,7 @@
 name: ci
 # See https://docs.docker.com/build/ci/github-actions/examples
+env:
+  DOCKER_BUILDKIT: 1
 
 on:
   schedule:
