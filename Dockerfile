@@ -97,7 +97,6 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" \
-    -DLLVM_TARGETS_TO_BUILD=X86 \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
   # Build libraries, headers, and binaries
@@ -175,3 +174,4 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
+RUN alias ls="ls --color=auto"
