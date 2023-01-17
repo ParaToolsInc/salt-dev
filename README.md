@@ -6,6 +6,10 @@ Container definitions for [SALT] development.
 
 This repository defines and deploys the containers used for [SALT] continuous integration (CI) and local development.
 
+LLVM/Clang patches needed by [SALT] for minimal LLVM/Clang builds are shared between this repository
+and [SALT] using a [git submodule].
+The patches are stored here: https://github.com/ParaToolsInc/salt-llvm-patches
+
 ## Building the development container for local use
 
 First, BuildKit, caching and intelligent layer creation and ordering have been employed
@@ -82,3 +86,4 @@ Very useful examples are available [here](https://docs.docker.com/build/ci/githu
 
 
 [SALT]: https://github.com/ParaToolsInc/salt
+[git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
