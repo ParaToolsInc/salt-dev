@@ -3,6 +3,7 @@
 FROM launcher.gcr.io/google/debian11:latest as builder
 LABEL maintainer "ParaTools Inc."
 
+COPY scripts/timing.sh .
 # Install build dependencies of llvm.
 # First, Update the apt's source list and include the sources of the packages.
 # Improve caching too
@@ -75,12 +76,12 @@ EOC
 
 # Install a newer ninja release. It seems the older version in the debian repos
 # randomly crashes when compiling llvm.
+COPY scripts/dl-unzip.sh .
 RUN <<EOC
-  wget --no-verbose "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip"
-  echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
-    | sha256sum -c
-  unzip ninja-linux.zip -d /usr/local/bin
-  rm  ninja-linux.zip
+  ./dl-unzip.sh \
+    "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip" \
+    "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77"
+  mv ninja /usr/local/bin
 EOC
 
 # Configure and build LLVM/Clang components needed by SALT
@@ -124,6 +125,10 @@ EOC
 FROM launcher.gcr.io/google/debian11:latest
 LABEL maintainer "ParaTools Inc."
 
+RUN ls -la --color=always
+COPY scripts/timing.sh .
+RUN ls -la --color=always
+
 # Install packages for minimal useful image.
 RUN <<EOC
   rm -f /etc/apt/apt.conf.d/docker-clean
@@ -158,11 +163,11 @@ WORKDIR /home/salt/
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
+COPY scripts/dl-unzip.sh .
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   ccache -s
-  echo "verbose=off" > ~/.wgetrc
-  wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
-  tar xzvf tau.tgz
+  ./dl-unzip.sh http://tau.uoregon.edu/tau.tgz || \
+    ./dl-unzip.sh http://fs.paratools.com/tau-mirror/tau.tgz
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++\
     -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
@@ -174,4 +179,3 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
-RUN alias ls="ls --color=auto"
