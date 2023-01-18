@@ -19,7 +19,7 @@ RUN --mount=type=cache,target=/ccache/ ls -l $CCACHE_DIR
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
   apt-get install -y --no-install-recommends ca-certificates \
-    build-essential cmake ccache make python3 zlib1g wget unzip git
+    build-essential cmake ccache make python3 zlib1g wget unzip git time
 EOC
 
 # use ccache (make it appear in path earlier then /usr/bin/gcc etc)
@@ -134,7 +134,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   apt-get update
   apt-get install -y --no-install-recommends libstdc++-10-dev \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
-    gcc g++ wget
+    gcc g++ wget time
   rm -rf /var/lib/apt/lists/*
 EOC
 
