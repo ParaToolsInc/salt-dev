@@ -41,7 +41,7 @@ RUN --mount=type=cache,target=/git <<EOC
     echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required."
 #    export SHALLOW='--depth=1'
   fi
-  if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/14.x --ff-only
+  if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/15.x --ff-only
   then
     echo "WARNING: Using cached llvm git repository and pulling updates"
     cp -r /git/llvm-project.git /llvm-project/.git
@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/git <<EOC
     echo "Cloning a fresh LLVM repository"
     git clone --separate-git-dir=/git/llvm-project.git \
       ${SHALLOW:-} --single-branch \
-      --branch=release/14.x \
+      --branch=release/15.x \
       --filter=blob:none \
       https://github.com/llvm/llvm-project.git
     if [ -f /llvm-project/.git ]; then
