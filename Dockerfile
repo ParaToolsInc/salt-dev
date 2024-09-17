@@ -95,12 +95,13 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   fi
   ccache -s
   #Configure the build
+  if uname -a | grep x86 ; then eport LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_CCACHE_BUILD=On \
-    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
+    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" ${LLVM_TARGETS_TO_BUILD} \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
   # Build libraries, headers, and binaries
@@ -108,9 +109,11 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
   cd /llvm-project/llvm/build
   # Actually do the build
-  ninja install-llvm-libraries install-llvm-headers \
+  ninja install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-    install-clang-resource-headers install-llvm-config install-cmake-exports
+    install-clang-resource-headers \
+    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
+    install-flangFrontend install-flangFrontendTool
   ccache -s
   git -C /llvm-project status
 EOC
