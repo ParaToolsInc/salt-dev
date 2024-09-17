@@ -118,11 +118,11 @@ EOC
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
 COPY patches/LLVMExports.cmake.patch .
-# RUN <<EOC
-#   find /tmp/llvm -name '*.cmake' -type f
-#   patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
-#   patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
-# EOC
+RUN <<EOC
+  find /tmp/llvm -name '*.cmake' -type f
+  patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
+  patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
+EOC
 
 # Stage 2. Produce a minimal release image with build results.
 FROM launcher.gcr.io/google/debian12:latest
