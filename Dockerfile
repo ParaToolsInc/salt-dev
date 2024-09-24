@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 # Stage 1. Check out LLVM source code and run the build.
-FROM launcher.gcr.io/google/debian12:latest as builder
+FROM debian:12 as builder
 LABEL maintainer "ParaTools Inc."
 
 # Install build dependencies of llvm.
@@ -22,9 +22,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
     build-essential cmake ccache make python3 zlib1g wget unzip git
   cmake --version
 EOC
-
-# use ccache (make it appear in path earlier then /usr/bin/gcc etc)
-RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
 
 ARG CI=false
 ARG LLVM_VER=18
@@ -95,27 +92,29 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   fi
   ccache -s
   #Configure the build
-  if uname -a | grep x86 ; then eport LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
+  if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_CCACHE_BUILD=On \
-    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" ${LLVM_TARGETS_TO_BUILD} \
+    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra" ${LLVM_TARGETS_TO_BUILD} \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
   # Build libraries, headers, and binaries
   # Do build
   ccache -s
   cd /llvm-project/llvm/build
-  # Actually do the build
-  ninja install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
+  # Actually do the build on nproc - 1 cores unless nproc == 2
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
+    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool
-  ccache -s
   git -C /llvm-project status
+  cp -r /tmp/llvm /usr/local/
+  ccache -s
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
@@ -128,7 +127,7 @@ RUN <<EOC
 EOC
 
 # Stage 2. Produce a minimal release image with build results.
-FROM launcher.gcr.io/google/debian12:latest
+FROM debian:12
 LABEL maintainer "ParaTools Inc."
 
 # Install packages for minimal useful image.
@@ -168,9 +167,10 @@ WORKDIR /home/salt/
 # http://fs.paratools.com/tau-nightly.tgz
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   ccache -s
-  echo "verbose=off" > ~/.wgetrc
-  wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
-  tar xzvf tau.tgz
+  # echo "verbose=off" > ~/.wgetrc
+  # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
+  # tar xzvf tau.tgz
+  git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++\
     -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
