@@ -98,7 +98,9 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_CCACHE_BUILD=On \
-    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra" ${LLVM_TARGETS_TO_BUILD} \
+    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
+    -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+    ${LLVM_TARGETS_TO_BUILD} \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
   # Build libraries, headers, and binaries
@@ -110,6 +112,9 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers \
+    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
+    install-openmp-resource-headers \
+    install-compiler-rt \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool
   git -C /llvm-project status
@@ -170,7 +175,7 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   # echo "verbose=off" > ~/.wgetrc
   # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
   # tar xzvf tau.tgz
-  git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
+  GIT_SSL_NO_VERIFY=true git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++\
     -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
