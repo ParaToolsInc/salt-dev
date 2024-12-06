@@ -83,7 +83,5 @@ Using the official docker GitHub Actions with their support for caching maximize
 efficiency of building the image(s) during CI.
 Very useful examples are available [here](https://docs.docker.com/build/ci/github-actions/examples).
 
-
-
 [SALT]: https://github.com/ParaToolsInc/salt
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules

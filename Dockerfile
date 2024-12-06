@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 # Stage 1. Check out LLVM source code and run the build.
-FROM launcher.gcr.io/google/debian11:latest as builder
+FROM debian:12 as builder
 LABEL maintainer "ParaTools Inc."
 
 # Install build dependencies of llvm.
@@ -20,12 +20,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   apt-get update
   apt-get install -y --no-install-recommends ca-certificates \
     build-essential cmake ccache make python3 zlib1g wget unzip git
+  cmake --version
 EOC
 
-# use ccache (make it appear in path earlier then /usr/bin/gcc etc)
-RUN for p in gcc g++ clang clang++ cc c++; do ln -vs /usr/bin/ccache /usr/local/bin/$p;  done
-
 ARG CI=false
+ARG LLVM_VER=18
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
   echo "Checking out LLVM."
@@ -41,7 +40,7 @@ RUN --mount=type=cache,target=/git <<EOC
     echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required."
 #    export SHALLOW='--depth=1'
   fi
-  if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/15.x --ff-only
+  if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/${LLVM_VER}.x --ff-only
   then
     echo "WARNING: Using cached llvm git repository and pulling updates"
     cp -r /git/llvm-project.git /llvm-project/.git
@@ -50,7 +49,7 @@ RUN --mount=type=cache,target=/git <<EOC
     echo "Cloning a fresh LLVM repository"
     git clone --separate-git-dir=/git/llvm-project.git \
       ${SHALLOW:-} --single-branch \
-      --branch=release/15.x \
+      --branch=release/${LLVM_VER}.x \
       --filter=blob:none \
       https://github.com/llvm/llvm-project.git
     if [ -f /llvm-project/.git ]; then
@@ -92,23 +91,35 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     exit 1
   fi
   ccache -s
+  #Configure the build
+  if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" \
+    -DLLVM_CCACHE_BUILD=On \
+    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
+    -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+    ${LLVM_TARGETS_TO_BUILD} \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
   # Build libraries, headers, and binaries
   # Do build
   ccache -s
   cd /llvm-project/llvm/build
-  # Actually do the build
-  ninja install-llvm-libraries install-llvm-headers \
+  # Actually do the build on nproc - 1 cores unless nproc == 2
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
+    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-    install-clang-resource-headers install-llvm-config install-cmake-exports
-  ccache -s
+    install-clang-resource-headers \
+    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
+    install-openmp-resource-headers \
+    install-compiler-rt \
+    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
+    install-flangFrontend install-flangFrontendTool
   git -C /llvm-project status
+  cp -r /tmp/llvm /usr/local/
+  ccache -s
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
@@ -121,7 +132,7 @@ RUN <<EOC
 EOC
 
 # Stage 2. Produce a minimal release image with build results.
-FROM launcher.gcr.io/google/debian11:latest
+FROM debian:12
 LABEL maintainer "ParaTools Inc."
 
 # Install packages for minimal useful image.
@@ -132,7 +143,8 @@ EOC
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
   apt-get update
-  apt-get install -y --no-install-recommends libstdc++-10-dev \
+  # libstdc++-10-dev \
+  apt-get install -y --no-install-recommends \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
     gcc g++ wget
   rm -rf /var/lib/apt/lists/*
@@ -163,11 +175,12 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   echo "verbose=off" > ~/.wgetrc
   wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
   tar xzvf tau.tgz
+  # GIT_SSL_NO_VERIFY=true git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   cd tau*
-  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++\
-    -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
-  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++\
-    -bfd=download -unwind=download -dwarf=download -otf=download -pthread -iowrapper -j
+  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
+    -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang\
+    -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   cd ..
   rm -rf tau*
   ccache -s
