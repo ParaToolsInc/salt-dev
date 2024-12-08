@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
 EOC
 
 ARG CI=false
-ARG LLVM_VER=18
+ARG LLVM_VER=19
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
   echo "Checking out LLVM."
