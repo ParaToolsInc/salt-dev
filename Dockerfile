@@ -91,13 +91,12 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     exit 1
   fi
   ccache -s
-  #Configure the build
+  # Configure the build
   if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_CCACHE_BUILD=On \
     -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
     -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
     ${LLVM_TARGETS_TO_BUILD} \
@@ -107,20 +106,18 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   # Do build
   ccache -s
   cd /llvm-project/llvm/build
+  # Try freeing up some space by deleting .git directories? What could go wrong?
+  # Hold my beer
+  rm -rf /git/llvm-project.git /llvm-project/.git || true
   # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
-    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
-    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-    install-clang-resource-headers \
-    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
-    install-openmp-resource-headers \
-    install-compiler-rt \
-    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
-    install-flangFrontend install-flangFrontendTool \
-    install
-  git -C /llvm-project status
-  cp -r /tmp/llvm /usr/local/
-  ccache -s
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) --quiet > build.log 2>&1 &
+  build_pid=$!
+  while kill -0 $build_pid 2>/dev/null; do
+    tail -n 10 build.log
+    sleep 60
+  done
+  wait $build_pid
+  tail -n 100 build.log
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
