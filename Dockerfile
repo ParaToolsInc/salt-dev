@@ -178,9 +178,9 @@ WORKDIR /home/salt/
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   ccache -s
   echo "verbose=off" > ~/.wgetrc
-  wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
-  tar xzvf tau.tgz
-  # GIT_SSL_NO_VERIFY=true git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
+  # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
+  # tar xzvf tau.tgz
+  git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
