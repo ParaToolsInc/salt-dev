@@ -116,7 +116,8 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     install-openmp-resource-headers \
     install-compiler-rt \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
-    install-flangFrontend install-flangFrontendTool
+    install-flangFrontend install-flangFrontendTool \
+    install-openmp install-openmp-resource-headers \
   git -C /llvm-project status
   cp -r /tmp/llvm /usr/local/
   ccache -s
