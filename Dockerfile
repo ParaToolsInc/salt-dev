@@ -97,6 +97,7 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DLLVM_CCACHE_BUILD=On \
     -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
     -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
     ${LLVM_TARGETS_TO_BUILD} \
@@ -107,7 +108,16 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
   cd /llvm-project/llvm/build
     # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) install > build.log 2>&1 &
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
+    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
+    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
+    install-clang-resource-headers \
+    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
+    install-openmp-resource-headers \
+    install-compiler-rt \
+    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
+    install-flangFrontend install-flangFrontendTool \
+    > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
     tail -n 4 build.log
@@ -115,9 +125,11 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   done
   wait $build_pid
   tail -n 100 build.log
-  rm -rf /llvm-project/llvm/build # reclaim space, should be cached anyway by ccache
+  rm -rf /llvm-project/llvm # reclaim space, should be cached anyway by ccache
   ccache -s
 EOC
+
+RUN ln -s /tmp/llvm/bin/flang-new /tmp/llvm/bin/flang # remove for LLVM 20
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
@@ -155,7 +167,7 @@ EOC
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
-COPY --from=builder /tmp/llvm/ /usr/
+COPY --from=builder /tmp/llvm/ /usr/local/
 
 # Setup ccache
 ENV CCACHE_DIR=/home/salt/ccache
