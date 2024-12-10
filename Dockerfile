@@ -190,4 +190,5 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
-RUN alias ls="ls --color=auto"
+ENV TAU_ROOT=/usr/local
+WORKDIR /home/salt/src
