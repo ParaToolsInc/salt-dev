@@ -110,12 +110,17 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) install > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
-    tail -n 10 build.log
-    sleep 60
+    tail -n 8 build.log
+    sleep 90
   done
   wait $build_pid
   tail -n 100 build.log
 EOC
+
+RUN <<EOC
+  if ! [[ "X${CI}" == "Xfalse" ]] ; then
+    rm -rf /llvm-project/llvm/build
+  fi
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
@@ -183,6 +188,7 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd ..
   rm -rf tau*
   ccache -s
+  ls
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
