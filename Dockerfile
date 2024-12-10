@@ -107,16 +107,14 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
   cd /llvm-project/llvm/build
     # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) --quiet install > build.log 2>err.log &
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) install > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
     tail -n 10 build.log
-    tail -n 10 err.log
     sleep 60
   done
   wait $build_pid
   tail -n 100 build.log
-  tail -n 100 err.log
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
