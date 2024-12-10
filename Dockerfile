@@ -106,11 +106,8 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   # Do build
   ccache -s
   cd /llvm-project/llvm/build
-  # Try freeing up some space by deleting .git directories? What could go wrong?
-  # Hold my beer
-  rm -rf /git/llvm-project.git /llvm-project/.git || true
-  # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) --quiet > build.log 2>&1 &
+    # Actually do the build on nproc - 1 cores unless nproc == 2
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) --quiet install > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
     tail -n 10 build.log
