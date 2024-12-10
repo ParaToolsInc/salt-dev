@@ -91,13 +91,12 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     exit 1
   fi
   ccache -s
-  #Configure the build
+  # Configure the build
   if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DLLVM_CCACHE_BUILD=On \
     -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
     -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
     ${LLVM_TARGETS_TO_BUILD} \
@@ -107,19 +106,18 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   # Do build
   ccache -s
   cd /llvm-project/llvm/build
-  # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
-    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
-    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-    install-clang-resource-headers \
-    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
-    install-openmp-resource-headers \
-    install-compiler-rt \
-    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
-    install-flangFrontend install-flangFrontendTool
-  git -C /llvm-project status
-  cp -r /tmp/llvm /usr/local/
-  ccache -s
+    # Actually do the build on nproc - 1 cores unless nproc == 2
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) install > build.log 2>&1 &
+  build_pid=$!
+  while kill -0 $build_pid 2>/dev/null; do
+    tail -n 8 build.log
+    sleep 90
+  done
+  wait $build_pid
+  tail -n 100 build.log
+  if ! [[ "X${CI}" == "Xfalse" ]] ; then # reclaim space in CI
+    rm -rf /llvm-project/llvm/build
+  fi
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
@@ -177,9 +175,9 @@ WORKDIR /home/salt/
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   ccache -s
   echo "verbose=off" > ~/.wgetrc
-  wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
-  tar xzvf tau.tgz
-  # GIT_SSL_NO_VERIFY=true git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
+  # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
+  # tar xzvf tau.tgz
+  git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
@@ -188,6 +186,7 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd ..
   rm -rf tau*
   ccache -s
+  ls
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
