@@ -115,12 +115,10 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   done
   wait $build_pid
   tail -n 100 build.log
-EOC
-
-RUN <<EOC
-  if ! [[ "X${CI}" == "Xfalse" ]] ; then
+  if ! [[ "X${CI}" == "Xfalse" ]] ; then # reclaim space in CI
     rm -rf /llvm-project/llvm/build
   fi
+EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
