@@ -110,14 +110,13 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) install > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
-    tail -n 8 build.log
+    tail -n 4 build.log
     sleep 90
   done
   wait $build_pid
   tail -n 100 build.log
-  if ! [[ "X${CI}" == "Xfalse" ]] ; then # reclaim space in CI
-    rm -rf /llvm-project/llvm/build
-  fi
+  rm -rf /llvm-project/llvm/build # reclaim space, should be cached anyway by ccache
+  ccache -s
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
