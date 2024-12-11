@@ -135,8 +135,8 @@ RUN <<EOC
   FLANG_NEW_DIR="$(dirname $FLANG_NEW)"
   cd "$FLANG_NEW_DIR"
   pwd
-  ls -la
   ln -s flang-new flang # remove for LLVM 20
+  ls -la
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
