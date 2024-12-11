@@ -156,7 +156,10 @@ EOC
 FROM debian:12
 LABEL maintainer "ParaTools Inc."
 # Create the docker group with GID 967
-RUN groupadd -g 967 docker
+RUN <<EOC
+  groupadd -g 967 docker
+  echo "umask 002" >> /etc/profile
+EOC
 
 # Ensure all subsequent commands are run using the docker group
 USER :967
@@ -187,6 +190,8 @@ ENV CCACHE_DIR=/home/salt/ccache
 
 WORKDIR /home/salt/
 
+ENV TAU_ROOT=/usr/local
+
 # Download and install TAU
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
@@ -209,11 +214,12 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
   for p in gcc g++ clang clang++ cc c++; do
-    rm /usr/local/bin/$p # Only use ccache for building TAU, do not confuse users
+    # Only use ccache for building TAU, do not confuse users
+    rm /usr/local/bin/$p
+    ln -vs /usr/bin/$p /usr/local/bin/$p
   done
   ls
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
-ENV TAU_ROOT=/usr/local
 WORKDIR /home/salt/src
