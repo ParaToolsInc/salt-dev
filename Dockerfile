@@ -97,6 +97,7 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DLLVM_CCACHE_BUILD=On \
     -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
     -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
     ${LLVM_TARGETS_TO_BUILD} \
@@ -107,17 +108,35 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
   cd /llvm-project/llvm/build
     # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) install > build.log 2>&1 &
+  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
+    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
+    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
+    install-clang-resource-headers \
+    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
+    install-openmp-resource-headers \
+    install-compiler-rt \
+    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
+    install-flangFrontend install-flangFrontendTool \
+    > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
-    tail -n 8 build.log
+    tail -n 4 build.log
     sleep 90
   done
   wait $build_pid
   tail -n 100 build.log
-  if ! [[ "X${CI}" == "Xfalse" ]] ; then # reclaim space in CI
-    rm -rf /llvm-project/llvm/build
-  fi
+  rm -rf /llvm-project/llvm # reclaim space, should be cached anyway by ccache
+  ccache -s
+EOC
+
+RUN <<EOC
+  find /tmp/llvm -name flang-new
+  FLANG_NEW="$(find /tmp/llvm -name flang-new)"
+  FLANG_NEW_DIR="$(dirname $FLANG_NEW)"
+  cd "$FLANG_NEW_DIR"
+  pwd
+  ln -s flang-new flang # remove for LLVM 20
+  ls -la
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
@@ -156,7 +175,7 @@ EOC
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
-COPY --from=builder /tmp/llvm/ /usr/
+COPY --from=builder /tmp/llvm/ /usr/local/
 
 # Setup ccache
 ENV CCACHE_DIR=/home/salt/ccache
@@ -181,13 +200,14 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang\
+  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   cd ..
-  rm -rf tau*
+  rm -rf tau* libdwarf-* otf2-*
   ccache -s
   ls
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
-RUN alias ls="ls --color=auto"
+ENV TAU_ROOT=/usr/local
+WORKDIR /home/salt/src
