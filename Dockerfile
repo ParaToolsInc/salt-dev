@@ -155,6 +155,14 @@ EOC
 # Stage 2. Produce a minimal release image with build results.
 FROM debian:12
 LABEL maintainer "ParaTools Inc."
+# Create the docker group with GID 967
+RUN <<EOC
+  groupadd -g 967 docker
+  echo "umask 002" >> /etc/profile
+EOC
+
+# Ensure all subsequent commands are run using the docker group
+USER :967
 
 # Install packages for minimal useful image.
 RUN <<EOC
@@ -175,23 +183,23 @@ EOC
 COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 
 # Copy build results of stage 1 to /usr/local.
-COPY --from=builder /tmp/llvm/ /usr/local/
+COPY --from=builder /tmp/llvm/ /usr/
 
 # Setup ccache
 ENV CCACHE_DIR=/home/salt/ccache
-RUN <<EOC
-  for p in gcc g++ clang clang++ cc c++; do
-    ln -vs /usr/bin/ccache /usr/local/bin/$p
-  done
-EOC
 
 WORKDIR /home/salt/
+
+ENV TAU_ROOT=/usr/local
 
 # Download and install TAU
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
+  for p in gcc g++ clang clang++ cc c++; do
+    ln -vs /usr/bin/ccache /usr/local/bin/$p
+  done
   ccache -s
   echo "verbose=off" > ~/.wgetrc
   # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
@@ -205,9 +213,13 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
+  for p in gcc g++ clang clang++ cc c++; do
+    # Only use ccache for building TAU, do not confuse users
+    rm /usr/local/bin/$p
+    ln -vs /usr/bin/$p /usr/local/bin/$p
+  done
   ls
 EOC
 
 ENV PATH="${PATH}:/usr/local/x86_64/bin"
-ENV TAU_ROOT=/usr/local
 WORKDIR /home/salt/src
