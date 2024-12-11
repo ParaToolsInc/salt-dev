@@ -129,7 +129,15 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
 EOC
 
-RUN ln -s /tmp/llvm/bin/flang-new /tmp/llvm/bin/flang # remove for LLVM 20
+RUN <<EOC
+  find /tmp/llvm -name flang-new
+  FLANG_NEW="$(find /tmp/llvm -name flang-new)"
+  FLANG_NEW_DIR="$(dirname $FLANG_NEW)"
+  cd "$FLANG_NEW_DIR"
+  pwd
+  ls -la
+  ln -s flang-new flang # remove for LLVM 20
+EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch .
@@ -192,7 +200,7 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang\
+  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
