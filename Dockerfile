@@ -175,7 +175,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   # libstdc++-10-dev \
   apt-get install -y --no-install-recommends \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
-    gcc g++ wget ca-certificates
+    gcc g++ gfortran wget ca-certificates
   rm -rf /var/lib/apt/lists/*
 EOC
 
