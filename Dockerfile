@@ -175,7 +175,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   # libstdc++-10-dev \
   apt-get install -y --no-install-recommends \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
-    gcc g++ gfortran wget ca-certificates
+    gcc g++ gfortran wget ca-certificates mpich libmpich-dev less man
   rm -rf /var/lib/apt/lists/*
 EOC
 
@@ -208,8 +208,12 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
+    -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
+    -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
