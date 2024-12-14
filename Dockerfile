@@ -115,6 +115,7 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
     install-openmp-resource-headers \
     install-compiler-rt \
+    tools/flang/install \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool \
     > build.log 2>&1 &
@@ -216,9 +217,6 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  export CC=clang
-  export CXX=clang++
-  export FC=flang-new
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
