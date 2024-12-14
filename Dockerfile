@@ -118,6 +118,8 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     tools/flang/install \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool \
+    install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower \
+    install-FortranParser install-FortranRuntime install-FortranSemantics \
     > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
