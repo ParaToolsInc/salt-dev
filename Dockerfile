@@ -115,8 +115,11 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
     install-openmp-resource-headers \
     install-compiler-rt \
+    tools/flang/install \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool \
+    install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower \
+    install-FortranParser install-FortranRuntime install-FortranSemantics \
     > build.log 2>&1 &
   build_pid=$!
   while kill -0 $build_pid 2>/dev/null; do
@@ -175,7 +178,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   # libstdc++-10-dev \
   apt-get install -y --no-install-recommends \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
-    gcc g++ gfortran wget ca-certificates
+    gcc g++ gfortran wget ca-certificates \
+    libopenmpi3 libopenmpi-dev openmpi-common openmpi-bin \
+    less man
   rm -rf /var/lib/apt/lists/*
 EOC
 
@@ -191,6 +196,8 @@ ENV CCACHE_DIR=/home/salt/ccache
 WORKDIR /home/salt/
 
 ENV TAU_ROOT=/usr/local
+ENV OMPI_ALLOW_RUN_AS_ROOT=1
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # Download and install TAU
 # http://tau.uoregon.edu/tau.tgz
@@ -208,8 +215,12 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd tau*
   ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
+    -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
+    -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
