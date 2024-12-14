@@ -175,7 +175,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   # libstdc++-10-dev \
   apt-get install -y --no-install-recommends \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
-    gcc g++ gfortran wget ca-certificates mpich libmpich-dev less man
+    gcc g++ gfortran wget ca-certificates \
+    libopenmpi3 libopenmpi-dev openmpi-common openmpi-bin \
+    less man
   rm -rf /var/lib/apt/lists/*
 EOC
 
@@ -191,6 +193,8 @@ ENV CCACHE_DIR=/home/salt/ccache
 WORKDIR /home/salt/
 
 ENV TAU_ROOT=/usr/local
+ENV OMPI_ALLOW_RUN_AS_ROOT=1
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # Download and install TAU
 # http://tau.uoregon.edu/tau.tgz
@@ -212,6 +216,9 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  export CC=clang
+  export CXX=clang++
+  export FC=flang-new
   ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
