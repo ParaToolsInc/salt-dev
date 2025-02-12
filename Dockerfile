@@ -228,9 +228,9 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new\
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new\
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
