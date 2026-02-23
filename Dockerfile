@@ -179,7 +179,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,t
   apt-get install -y --no-install-recommends \
     ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
     gcc g++ gfortran wget ca-certificates \
-    libopenmpi3 libopenmpi-dev openmpi-common openmpi-bin \
+    mpich libmpich-dev libmpich12 \
     less man
   rm -rf /var/lib/apt/lists/*
 EOC
@@ -200,6 +200,8 @@ ENV OMPI_ALLOW_RUN_AS_ROOT=1
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 
 # Download and install TAU
+# http://tau.uoregon.edu/pdt_lite.tgz
+# http://tau.uoregon.edu/pdt.tgz
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
@@ -209,17 +211,26 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   done
   ccache -s
   echo "verbose=off" > ~/.wgetrc
+  wget http://tau.uoregon.edu/pdt_lite.tgz || wget http://fs.paratools.com/tau-mirror/pdt_lite.tgz
+  tar xzvf pdt_lite.tgz
+  rm pdt_lite.tgz
+  cd pdt*
+  ./configure -GNU -prefix=/usr/local
+  make -j
+  make -j install
+  cd ..
+  rm -rf pdt*
   # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
   # tar xzvf tau.tgz
   git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   cd tau*
-  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
+  ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local/ -cc=gcc -c++=g++ -fortran=gfortran\
+  ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local/ -cc=clang -c++=clang++ -fortran=flang-new\
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
