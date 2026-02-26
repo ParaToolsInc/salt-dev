@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 # Stage 1. Check out LLVM source code and run the build.
-FROM debian:12 as builder
-LABEL maintainer "ParaTools Inc."
+FROM debian:12 AS builder
+LABEL maintainer="ParaTools Inc."
 
 # Install build dependencies of llvm.
 # First, Update the apt's source list and include the sources of the packages.
@@ -143,10 +143,8 @@ RUN <<EOC
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
-COPY patches/ClangTargets.cmake.patch .
-COPY patches/MLIRTargets.cmake.patch .
-COPY patches/FlangTargets.cmake.patch .
-COPY patches/LLVMExports.cmake.patch .
+COPY patches/ClangTargets.cmake.patch patches/MLIRTargets.cmake.patch \
+     patches/FlangTargets.cmake.patch patches/LLVMExports.cmake.patch ./
 RUN <<EOC
   find /tmp/llvm -name '*.cmake' -type f
   patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
@@ -157,7 +155,7 @@ EOC
 
 # Stage 2. Produce a minimal release image with build results.
 FROM debian:12
-LABEL maintainer "ParaTools Inc."
+LABEL maintainer="ParaTools Inc."
 # Create the docker group with GID 967
 RUN <<EOC
   groupadd -g 967 docker
@@ -206,12 +204,14 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
+  # Temporarily symlink compiler names to ccache so TAU/PDT builds use the cache
   for p in gcc g++ clang clang++ cc c++; do
     ln -vs /usr/bin/ccache /usr/local/bin/$p
   done
   ccache -s
   echo "verbose=off" > ~/.wgetrc
-  wget http://tau.uoregon.edu/pdt_lite.tgz || wget http://fs.paratools.com/tau-mirror/pdt_lite.tgz
+  wget https://fs.paratools.com/tau-mirror/pdt_lite.tgz || wget https://tau.uoregon.edu/pdt_lite.tgz
+  echo "2fc9e8670f615f5079ae263184804c8ba576981d1648a307a0d65eff97b8f50a pdt_lite.tgz" | sha256sum -c
   tar xzvf pdt_lite.tgz
   rm pdt_lite.tgz
   cd pdt*
@@ -235,8 +235,8 @@ RUN --mount=type=cache,target=/home/salt/ccache <<EOC
   cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
+  # Remove ccache symlinks and restore direct compiler links for end users
   for p in gcc g++ clang clang++ cc c++; do
-    # Only use ccache for building TAU, do not confuse users
     rm /usr/local/bin/$p
     ln -vs /usr/bin/$p /usr/local/bin/$p
   done

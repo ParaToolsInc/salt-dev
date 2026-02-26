@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1.4
+# Devtools image extending salt-dev with interactive development tools.
+# Build: docker buildx build -f Dockerfile.devtools -t salt-dev-tools --load .
+ARG BASE_TAG=latest
+ARG BASE_IMAGE=paratools/salt-dev
+FROM ${BASE_IMAGE}:${BASE_TAG}
+LABEL maintainer="ParaTools Inc."
+
+# Switch to root for package installation
+USER root
+
+# Create a named salt user with a real home directory
+# GID 967 matches the docker group already in the base image
+RUN useradd -m -s /bin/bash -g 967 -u 1000 salt
+
+# Add GitHub CLI apt repository
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+  apt-get update
+  apt-get install -y --no-install-recommends curl gpg
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/gh-cli.gpg
+  gpg --with-colons --import-options show-only --import /tmp/gh-cli.gpg 2>/dev/null \
+    | grep -q "fpr:::::::::2C6106201985B60E6C7AC87323F3D4EA75716059:" \
+    || { echo "ERROR: GitHub CLI GPG key fingerprint mismatch!"; exit 1; }
+  gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg < /tmp/gh-cli.gpg
+  rm /tmp/gh-cli.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    > /etc/apt/sources.list.d/github-cli.list
+EOC
+
+# Install all development tools in a single layer
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+  apt-get update
+  apt-get install -y --no-install-recommends \
+    emacs-nox \
+    gh \
+    nodejs npm \
+    ripgrep \
+    silversearcher-ag \
+    htop \
+    gdb \
+    jq \
+    python3 \
+    bat \
+    sudo \
+    valgrind
+  # Symlink batcat to bat for convenience (Debian name conflict)
+  ln -sf /usr/bin/batcat /usr/local/bin/bat
+  # Grant salt user passwordless sudo (dev/debug image only)
+  echo "salt ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/salt
+  rm -rf /var/lib/apt/lists/*
+EOC
+
+# Install Claude Code globally via npm
+RUN npm install -g @anthropic-ai/claude-code
+
+# Copy Intel IFX installer script (run manually when needed)
+COPY install-intel-ifx.sh /usr/local/bin/install-intel-ifx.sh
+RUN chmod +x /usr/local/bin/install-intel-ifx.sh
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Switch to salt user for runtime
+USER salt
+WORKDIR /home/salt/src
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["/bin/bash"]

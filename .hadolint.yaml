@@ -1,0 +1,67 @@
+# Hadolint configuration for salt-dev Dockerfiles
+# See: https://github.com/hadolint/hadolint#configure
+
+ignored:
+  # DL3008: Pin versions in apt-get install
+  # Impractical on Debian 12 stable — packages don't have multiple versions
+  # and pinning creates maintenance burden without reproducibility benefit.
+  - DL3008
+
+  # DL3003: Use WORKDIR to switch to a directory
+  # Our RUN heredoc scripts cd within complex multi-command sequences where
+  # WORKDIR would break layer caching and readability.
+  - DL3003
+
+  # DL3059: Multiple consecutive RUN instructions
+  # Intentional for cache granularity — each RUN with --mount=type=cache
+  # has distinct cache mount requirements.
+  - DL3059
+
+  # DL3006: Always tag the version of an image explicitly
+  # Dockerfile.devtools uses FROM ${BASE_IMAGE}:${BASE_TAG} — hadolint
+  # cannot resolve ARG-based tags and would false-positive on this.
+  - DL3006
+
+  # SC2046: Quote this to prevent word splitting
+  # Intentional word splitting in RUN heredocs (e.g., $(nproc) in arithmetic).
+  - SC2046
+
+  # SC2086: Double quote to prevent globbing and word splitting
+  # Same context as SC2046 — intentional unquoted expansions in heredoc scripts.
+  - SC2086
+
+  # DL4006: Set the SHELL option -o pipefail before RUN with a pipe in it
+  # Our Dockerfiles use heredoc syntax (<<EOC) for RUN commands. Adding
+  # SHELL ["/bin/bash", "-o", "pipefail", "-c"] would change semantics for
+  # all RUN instructions and is unnecessary — heredoc scripts handle errors
+  # via explicit checks.
+  - DL4006
+
+  # SC2094: Make sure not to read and write the same file in the same pipeline
+  # The grep|sed pattern in the sources.list manipulation is intentional —
+  # sed appends to the file, it does not overwrite the lines grep reads.
+  - SC2094
+
+  # SC2164: Use 'cd ... || exit' in case cd fails
+  # Inside RUN heredocs, cd failures are caught by the shell's error handling
+  # within the heredoc block. Adding || exit to every cd is noise.
+  - SC2164
+
+  # DL3045: COPY to a relative destination without WORKDIR set
+  # Builder stage intentionally COPYs patch files to the default working
+  # directory (/) before applying them. WORKDIR is set later in the release stage.
+  - DL3045
+
+  # DL3001: For some bash commands it makes no sense running them in a Docker container
+  # False positive — flags pwd/ls used as build-time debugging aids, not runtime services.
+  - DL3001
+
+  # DL3047: Avoid use of wget without progress bar
+  # The Dockerfile sets verbose=off in .wgetrc for cleaner build logs.
+  # Using --progress=dot:giga would be noisier.
+  - DL3047
+
+  # DL3016: Pin versions in npm
+  # We intentionally install latest @anthropic-ai/claude-code to get the
+  # newest version in each image build.
+  - DL3016

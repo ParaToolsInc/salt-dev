@@ -1,5 +1,6 @@
 /.git/
 Dockerfile
+Dockerfile.devtools
 **/.DS_Store
 /.github/
 *.md
