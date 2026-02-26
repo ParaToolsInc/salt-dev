@@ -25,8 +25,10 @@ DOCKERFILES=(
 )
 
 SHELL_SCRIPTS=(
+  build-llvm.sh
   docker-entrypoint.sh
   install-intel-ifx.sh
+  test-build-llvm.sh
   .github/actions/docker-cache/backup.sh
   .github/actions/docker-cache/restore.sh
   .github/actions/docker-cache/timing.sh
