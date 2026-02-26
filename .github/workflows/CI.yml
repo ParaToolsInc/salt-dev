@@ -88,6 +88,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       -
+        name: Compute cache tag
+        id: cache-tag
+        run: |
+          # Sanitize ref name for use as a Docker tag
+          # (e.g., PR refs "1/merge" or branch "feature/foo" contain invalid "/" chars)
+          echo "ref=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+      -
         name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -97,8 +104,22 @@ jobs:
           build-args: CI=true
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache
+            type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-${{ steps.cache-tag.outputs.ref }}
+          cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-${{ steps.cache-tag.outputs.ref }},mode=max
+      -
+        name: Update shared build cache
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: CI=true
+          push: false
+          tags: salt-dev:cache-warmup
+          cache-from: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-${{ steps.cache-tag.outputs.ref }}
+          cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache,mode=max
       -
         name: Update repo description
         if: github.event_name != 'pull_request'
@@ -150,6 +171,13 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       -
+        name: Compute cache tag
+        id: cache-tag
+        run: |
+          # Sanitize ref name for use as a Docker tag
+          # (e.g., PR refs "1/merge" or branch "feature/foo" contain invalid "/" chars)
+          echo "ref=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
+      -
         name: Determine base tag
         id: base-tag
         run: |
@@ -170,8 +198,23 @@ jobs:
             BASE_TAG=${{ steps.base-tag.outputs.tag }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha,scope=devtools
-          cache-to: type=gha,mode=max,scope=devtools
+          cache-from: |
+            type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache
+            type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache-${{ steps.cache-tag.outputs.ref }}
+          cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache-${{ steps.cache-tag.outputs.ref }},mode=max
+      -
+        name: Update shared build cache
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.devtools
+          build-args: |
+            BASE_TAG=${{ steps.base-tag.outputs.tag }}
+          push: false
+          tags: salt-dev-tools:cache-warmup
+          cache-from: type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache-${{ steps.cache-tag.outputs.ref }}
+          cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache,mode=max
       -
         name: Update repo description
         uses: peter-evans/dockerhub-description@v4
