@@ -82,6 +82,9 @@ RUN <<EOC
   rm  ninja-linux.zip
 EOC
 
+COPY build-llvm.sh /usr/local/bin/
+ARG NINJA_MAX_JOBS=""
+
 # Configure and build LLVM/Clang components needed by SALT
 RUN --mount=type=cache,target=/ccache/ <<EOC
   nproc --all || lscpu || true
@@ -106,9 +109,8 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   # Build libraries, headers, and binaries
   # Do build
   ccache -s
-  cd /llvm-project/llvm/build
-    # Actually do the build on nproc - 1 cores unless nproc == 2
-  ninja -j $(( $(nproc --ignore=4) > 2 ? $(nproc --ignore=1) : 2)) \
+  build-llvm.sh --build-dir /llvm-project/llvm/build \
+    ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
     install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers \
@@ -119,15 +121,7 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool \
     install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower \
-    install-FortranParser install-FortranRuntime install-FortranSemantics \
-    > build.log 2>&1 &
-  build_pid=$!
-  while kill -0 $build_pid 2>/dev/null; do
-    tail -n 4 build.log
-    sleep 90
-  done
-  wait $build_pid
-  tail -n 100 build.log
+    install-FortranParser install-FortranRuntime install-FortranSemantics
   rm -rf /llvm-project/llvm # reclaim space, should be cached anyway by ccache
   ccache -s
 EOC

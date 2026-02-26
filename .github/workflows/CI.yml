@@ -10,7 +10,7 @@ env:
 
 on:
   schedule:
-    - cron: "41 1 * * */1"
+    - cron: "41 1 * * 1"
   push:
     branches:
       - "**"
@@ -26,6 +26,9 @@ jobs:
       -
         name: Checkout
         uses: actions/checkout@v4
+      -
+        name: Run build script tests
+        run: bash test-build-llvm.sh
       -
         name: Install hadolint
         run: |
