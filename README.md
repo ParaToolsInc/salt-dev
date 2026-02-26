@@ -33,6 +33,34 @@ docker run -it --tmpfs=/dev/shm:rw,nosuid,nodev,exec --privileged -v $(pwd):/hom
 
 This will mount the working directory (usually your SALT worktree) into `/home/salt/src`.
 
+## Dev Tools Image (`salt-dev-tools`)
+
+A variant of the development container with interactive tooling for AI-assisted development, debugging, and profiling. Extends the base `salt-dev` image.
+
+Includes: Claude Code, GitHub CLI, Node.js 22, emacs, ripgrep, silversearcher, gdb, valgrind, htop, jq, bat, and python3.
+
+### Building
+
+``` shell
+docker buildx build -f Dockerfile.devtools -t salt-dev-tools --load .
+```
+
+### Running
+
+``` shell
+docker run -it \
+  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+  -e GH_TOKEN="$GH_TOKEN" \
+  -e GIT_AUTHOR_NAME="Your Name" \
+  -e GIT_AUTHOR_EMAIL="you@example.com" \
+  -v $(pwd):/home/salt/src \
+  salt-dev-tools
+```
+
+### VS Code Devcontainer
+
+Open this repository in VS Code and accept the "Reopen in Container" prompt. The devcontainer configuration will build the image automatically and install GitHub Copilot extensions.
+
 ## Optimizations for expensive build steps
 
 The following discusses the major pain points and the steps taken to minimize them.
