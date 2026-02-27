@@ -94,6 +94,7 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     exit 1
   fi
   ccache -s
+
   # Configure the build
   if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
@@ -106,23 +107,59 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     ${LLVM_TARGETS_TO_BUILD} \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
-  # Build libraries, headers, and binaries
-  # Do build
-  ccache -s
-  build-llvm.sh --build-dir /llvm-project/llvm/build \
-    ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
-    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
+  BUILD_DIR=/llvm-project/llvm/build
+
+  NON_FLANG_TARGETS="install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers \
     install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
     install-openmp-resource-headers \
-    install-compiler-rt \
-    tools/flang/install \
+    install-compiler-rt"
+
+  FLANG_TARGETS="tools/flang/install \
     install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
     install-flangFrontend install-flangFrontendTool \
     install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower \
-    install-FortranParser install-FortranRuntime install-FortranSemantics
-  rm -rf /llvm-project/llvm # reclaim space, should be cached anyway by ccache
+    install-FortranParser install-FortranRuntime install-FortranSemantics"
+
+  ccache -s
+
+  if ${CI:-false}; then
+    echo "=== CI mode: phased LLVM build to prevent OOM ==="
+
+    # Phase 1: Non-Flang targets at full parallelism (no OOM risk)
+    echo "--- Phase 1: Non-Flang targets (parallel) ---"
+    build-llvm.sh --build-dir "$BUILD_DIR" \
+      ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
+      $NON_FLANG_TARGETS
+
+    # Phase 2: OOM-fragile .o files at -j1 (fold ~3-4 GB each)
+    # Discovered dynamically from ninja build graph after cmake configure
+    echo "--- Phase 2: OOM-fragile object files (-j1) ---"
+    OOM_TARGETS=$(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
+      | grep -E 'Fortran(Evaluate|Semantics|Lower)\.dir/(fold|check-|lower-).*\.cpp\.o:' \
+      | cut -d: -f1 || true)
+    if [ -n "$OOM_TARGETS" ]; then
+      echo "Building $(echo "$OOM_TARGETS" | wc -l) OOM-fragile targets at -j1"
+      echo "$OOM_TARGETS"
+      ninja -C "$BUILD_DIR" -j1 $OOM_TARGETS
+    else
+      echo "WARNING: No OOM-fragile targets found (pattern may need updating)"
+    fi
+
+    # Phase 3: Flang targets at full parallelism (OOM .o files pre-built)
+    echo "--- Phase 3: Flang targets (parallel, OOM files pre-built) ---"
+    build-llvm.sh --build-dir "$BUILD_DIR" \
+      ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
+      $FLANG_TARGETS
+  else
+    # Local: single pass (adequate memory + build-llvm.sh retry handles OOM)
+    build-llvm.sh --build-dir "$BUILD_DIR" \
+      ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
+      $NON_FLANG_TARGETS $FLANG_TARGETS
+  fi
+
+  rm -rf /llvm-project/llvm
   ccache -s
 EOC
 
