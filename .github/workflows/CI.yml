@@ -77,6 +77,7 @@ jobs:
           submodules: recursive
       -
         name: Set up Docker Buildx
+        id: setup-buildx
         uses: docker/setup-buildx-action@v3
       -
         name: Login to Docker Hub
@@ -92,6 +93,28 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Restore ccache
+        id: ccache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/ccache-buildkit
+          key: ccache-${{ hashFiles('Dockerfile') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ hashFiles('Dockerfile') }}-
+            ccache-
+      -
+        name: Inject/extract ccache for BuildKit
+        uses: reproducible-containers/buildkit-cache-dance@v3.3.2
+        with:
+          builder: ${{ steps.setup-buildx.outputs.name }}
+          cache-dir: /tmp/ccache-buildkit
+          cache-map: |
+            {
+              "ccache-builder": "/ccache",
+              "ccache-tau": "/home/salt/ccache"
+            }
+          skip-extraction: ${{ steps.ccache.outputs.cache-hit == 'true' }}
       -
         name: Compute cache tag
         id: cache-tag
