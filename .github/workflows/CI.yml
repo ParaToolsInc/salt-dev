@@ -7,6 +7,8 @@ permissions:
 
 env:
   DOCKER_BUILDKIT: 1
+  # Uncomment to cap ninja parallelism (reduces peak memory for cold LLVM builds)
+  # NINJA_MAX_JOBS: "1"
 
 on:
   schedule:
@@ -104,7 +106,9 @@ jobs:
           context: .
           file: ./Dockerfile
           pull: true
-          build-args: CI=true
+          build-args: |
+            CI=true
+            ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
           cache-from: |
@@ -118,7 +122,9 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          build-args: CI=true
+          build-args: |
+            CI=true
+            ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
           push: false
           tags: salt-dev:cache-warmup
           cache-from: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-${{ steps.cache-tag.outputs.ref }}
