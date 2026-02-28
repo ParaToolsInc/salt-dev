@@ -130,8 +130,12 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
     # - oom_score_adj: prefer killing compiler processes over Docker daemon/runner agent
     # - ulimit -v: cap per-process virtual memory so ninja gets a clean failure
     #   (enables build-llvm.sh retry logic instead of runner crash)
-    echo 300 > /proc/$$/oom_score_adj
-    ulimit -v 3565158
+    echo 300 > /proc/$$/oom_score_adj 2>/dev/null \
+      && echo "oom_score_adj set to 300" \
+      || echo "WARNING: could not set oom_score_adj (sandboxed /proc?)"
+    ulimit -v 3565158 2>/dev/null \
+      && echo "ulimit -v set to 3565158 KB (3.4 GB)" \
+      || echo "WARNING: could not set ulimit -v (restricted?)"
 
     echo "=== CI mode: phased LLVM build to prevent OOM ==="
 
