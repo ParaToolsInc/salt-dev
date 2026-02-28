@@ -125,6 +125,14 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
 
   if ${CI:-false}; then
+
+    # Protect CI runner from hard OOM kills:
+    # - oom_score_adj: prefer killing compiler processes over Docker daemon/runner agent
+    # - ulimit -v: cap per-process virtual memory so ninja gets a clean failure
+    #   (enables build-llvm.sh retry logic instead of runner crash)
+    echo 300 > /proc/$$/oom_score_adj
+    ulimit -v 3565158
+
     echo "=== CI mode: phased LLVM build to prevent OOM ==="
 
     # Phase 1: Non-Flang targets at full parallelism (no OOM risk)

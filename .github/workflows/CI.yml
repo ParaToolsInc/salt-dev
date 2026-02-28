@@ -8,7 +8,7 @@ permissions:
 env:
   DOCKER_BUILDKIT: 1
   # Uncomment to cap ninja parallelism (reduces peak memory for cold LLVM builds)
-  NINJA_MAX_JOBS: "1"
+  # NINJA_MAX_JOBS: "1"
 
 on:
   schedule:
