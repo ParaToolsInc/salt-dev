@@ -103,6 +103,10 @@ jobs:
           restore-keys: |
             ccache-${{ hashFiles('Dockerfile') }}-
             ccache-
+          # save-always is deprecated but still the only mechanism to persist
+          # ccache on job failure/timeout (cold LLVM builds can exceed 6h).
+          # cache-dance extracts in its post step; actions/cache saves after.
+          save-always: true
       -
         name: Inject/extract ccache for BuildKit
         uses: reproducible-containers/buildkit-cache-dance@v3.3.2
@@ -115,6 +119,7 @@ jobs:
               "ccache-tau": "/home/salt/ccache"
             }
           skip-extraction: ${{ steps.ccache.outputs.cache-hit == 'true' }}
+          save-always: true
       -
         name: Compute cache tag
         id: cache-tag
