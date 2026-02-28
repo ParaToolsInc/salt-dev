@@ -91,7 +91,8 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # --- Run linters ---
 run_check "hadolint" hadolint "${DOCKERFILES[@]}"
 run_check "shellcheck" shellcheck --external-sources --source-path=SCRIPTDIR "${SHELL_SCRIPTS[@]}"
-run_check "actionlint" actionlint "${WORKFLOWS[@]}"
+# -ignore: suppress deprecated save-always warning — intentional use, see CI.yml comment
+run_check "actionlint" actionlint -ignore 'deprecated input "save-always"' "${WORKFLOWS[@]}"
 
 # jq --exit-status with 'empty' returns 0 on valid JSON, non-zero otherwise
 jq_check() {
