@@ -201,6 +201,9 @@ EOC
 # Stage 2. Produce a minimal release image with build results.
 FROM debian:13
 LABEL maintainer="ParaTools Inc."
+# Use bash (not sh) so heredocs can use pipefail; don't set -euo pipefail here
+# because TAU/PDT builds need to toggle it off mid-script.
+SHELL ["/bin/bash", "-c"]
 # Create the docker group with GID 967
 RUN <<EOC
 #!/usr/bin/env bash
@@ -254,6 +257,8 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
+# pipefail is toggled inside the heredoc; not set in SHELL because installtau returns non-zero
+# hadolint ignore=DL4006
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
@@ -268,7 +273,7 @@ set -euo pipefail
   tar xzvf pdt_lite.tgz
   rm pdt_lite.tgz
   PDT_DIR=$(echo pdt*)
-  "$PDT_DIR"/configure -GNU -prefix=/usr/local
+  (cd "$PDT_DIR" && ./configure -GNU -prefix=/usr/local)
   make -C "$PDT_DIR" -j
   make -C "$PDT_DIR" -j install
   rm -rf pdt*
