@@ -201,9 +201,7 @@ EOC
 # Stage 2. Produce a minimal release image with build results.
 FROM debian:13
 LABEL maintainer="ParaTools Inc."
-# Use bash (not sh) so heredocs can use pipefail; don't set -euo pipefail here
-# because TAU/PDT builds need to toggle it off mid-script.
-SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # Create the docker group with GID 967
 RUN <<EOC
 #!/usr/bin/env bash
@@ -257,8 +255,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
-# pipefail is toggled inside the heredoc; not set in SHELL because installtau returns non-zero
-# hadolint ignore=DL3003,DL4006
+# hadolint ignore=DL3003
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
@@ -279,9 +276,7 @@ set -euo pipefail
   rm -rf pdt*
   git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   # installtau uses ./configure internally which relies on pwd; must cd into tau2
-  # pipefail disabled because installtau returns non-zero even on success
   cd tau2
-  set +euo pipefail
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
@@ -290,7 +285,6 @@ set -euo pipefail
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  set -euo pipefail
   cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
