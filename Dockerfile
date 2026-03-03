@@ -7,7 +7,9 @@ LABEL maintainer="ParaTools Inc."
 # First, Update the apt's source list and include the sources of the packages.
 # Improve caching too
 RUN <<EOC
-  grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g' >> /etc/apt/sources.list
+#!/usr/bin/env bash
+set -euo pipefail
+  grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g' >> /etc/apt/sources.list || true
   rm -f /etc/apt/apt.conf.d/docker-clean
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
@@ -17,6 +19,8 @@ RUN --mount=type=cache,target=/ccache/ ls -l $CCACHE_DIR
 
 # Install compiler, cmake, git, ccache etc.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   apt-get update
   apt-get install -y --no-install-recommends ca-certificates \
     build-essential cmake ccache make python3 zlib1g wget unzip git
@@ -27,6 +31,8 @@ ARG CI=false
 ARG LLVM_VER=19
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 RUN --mount=type=cache,target=/git <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   echo "Checking out LLVM."
   echo "\$CI = $CI"
   # If the job is killed during a git operation the cache might be broken
@@ -75,6 +81,8 @@ EOC
 # Install a newer ninja release. It seems the older version in the debian repos
 # randomly crashes when compiling llvm.
 RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   wget --no-verbose "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip"
   echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
     | sha256sum -c
@@ -84,9 +92,12 @@ EOC
 
 COPY build-llvm.sh /usr/local/bin/
 ARG NINJA_MAX_JOBS=""
+ARG CI_AVAIL_MEM_KB=13926400
 
 # Configure and build LLVM/Clang components needed by SALT
 RUN --mount=type=cache,target=/ccache/ <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   nproc --all || lscpu || true
   pwd
   if ! git -C /llvm-project status ; then
@@ -96,6 +107,7 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   ccache -s
 
   # Configure the build
+  LLVM_TARGETS_TO_BUILD=""
   if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
@@ -110,6 +122,14 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
   BUILD_DIR=/llvm-project/llvm/build
 
   NON_FLANG_TARGETS="install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
+
+  # Build libraries, headers, and binaries
+  # Do build
+  ccache -s
+  build-llvm.sh --build-dir "${BUILD_DIR}" \
+    ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
+    ${CI_AVAIL_MEM_KB:+--avail-mem-kb "${CI_AVAIL_MEM_KB}"} \
+    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
     install-clang-resource-headers \
     install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
@@ -176,9 +196,15 @@ RUN --mount=type=cache,target=/ccache/ <<EOC
 EOC
 
 RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   find /tmp/llvm -name flang-new
   FLANG_NEW="$(find /tmp/llvm -name flang-new)"
-  FLANG_NEW_DIR="$(dirname $FLANG_NEW)"
+  if [ -z "$FLANG_NEW" ]; then
+    echo "ERROR: flang-new not found in /tmp/llvm — Flang build failed?" >&2
+    exit 1
+  fi
+  FLANG_NEW_DIR="$(dirname "$FLANG_NEW")"
   cd "$FLANG_NEW_DIR"
   pwd
   ln -s flang-new flang # remove for LLVM 20
@@ -189,6 +215,8 @@ EOC
 COPY patches/ClangTargets.cmake.patch patches/MLIRTargets.cmake.patch \
      patches/FlangTargets.cmake.patch patches/LLVMExports.cmake.patch ./
 RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   find /tmp/llvm -name '*.cmake' -type f
   patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
   patch --strip 1 --ignore-whitespace < MLIRTargets.cmake.patch
@@ -201,6 +229,8 @@ FROM debian:12
 LABEL maintainer="ParaTools Inc."
 # Create the docker group with GID 967
 RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   groupadd -g 967 docker
   echo "umask 002" >> /etc/profile
 EOC
@@ -210,11 +240,15 @@ USER :967
 
 # Install packages for minimal useful image.
 RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   rm -f /etc/apt/apt.conf.d/docker-clean
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   apt-get update
   # libstdc++-10-dev \
   apt-get install -y --no-install-recommends \
@@ -247,6 +281,8 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   # Temporarily symlink compiler names to ccache so TAU/PDT builds use the cache
   for p in gcc g++ clang clang++ cc c++; do
     ln -vs /usr/bin/ccache /usr/local/bin/$p

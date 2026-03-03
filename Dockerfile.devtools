@@ -16,6 +16,8 @@ RUN useradd -m -s /bin/bash -g 967 -u 1000 salt
 # Add GitHub CLI apt repository
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   apt-get update
   apt-get install -y --no-install-recommends curl gpg
   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/gh-cli.gpg
@@ -31,6 +33,8 @@ EOC
 # Install all development tools in a single layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
   apt-get update
   apt-get install -y --no-install-recommends \
     emacs-nox \

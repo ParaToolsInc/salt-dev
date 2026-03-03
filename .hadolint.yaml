@@ -31,10 +31,9 @@ ignored:
   - SC2086
 
   # DL4006: Set the SHELL option -o pipefail before RUN with a pipe in it
-  # Our Dockerfiles use heredoc syntax (<<EOC) for RUN commands. Adding
-  # SHELL ["/bin/bash", "-o", "pipefail", "-c"] would change semantics for
-  # all RUN instructions and is unnecessary — heredoc scripts handle errors
-  # via explicit checks.
+  # Our Dockerfiles use heredoc syntax (<<EOC) with #!/usr/bin/env bash
+  # shebangs and set -euo pipefail inside each heredoc. The SHELL instruction
+  # is unnecessary and would change semantics for non-heredoc RUN commands.
   - DL4006
 
   # SC2094: Make sure not to read and write the same file in the same pipeline
@@ -42,9 +41,14 @@ ignored:
   # sed appends to the file, it does not overwrite the lines grep reads.
   - SC2094
 
+  # SC3040: In POSIX sh, set option pipefail is undefined
+  # Our heredocs use #!/usr/bin/env bash shebangs (BuildKit syntax), so
+  # pipefail is valid. Hadolint can't parse heredoc shebangs and assumes /bin/sh.
+  - SC3040
+
   # SC2164: Use 'cd ... || exit' in case cd fails
-  # Inside RUN heredocs, cd failures are caught by the shell's error handling
-  # within the heredoc block. Adding || exit to every cd is noise.
+  # Inside RUN heredocs, cd failures are caught by set -euo pipefail.
+  # Adding || exit to every cd is noise.
   - SC2164
 
   # DL3045: COPY to a relative destination without WORKDIR set

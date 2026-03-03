@@ -76,6 +76,31 @@ test_compute_jobs 30 22
 test_compute_jobs 64 56
 
 # ============================================================
+# Tier 1: --avail-mem-kb dry-run output
+# ============================================================
+echo ""
+printf '%s=== Tier 1: --avail-mem-kb dry-run ===%s\n' "$BOLD" "$RESET"
+
+test_avail_mem_kb_in_output() {
+  local output
+  output=$(bash "$BUILD_SCRIPT" --dry-run --avail-mem-kb 13926400 2>/dev/null)
+  local actual
+  actual=$(echo "$output" | grep '^avail_mem_kb=' | cut -d= -f2)
+  assert_eq "--avail-mem-kb appears in dry-run" "13926400" "$actual"
+}
+
+test_avail_mem_kb_default_empty() {
+  local output
+  output=$(bash "$BUILD_SCRIPT" --dry-run 2>/dev/null)
+  local actual
+  actual=$(echo "$output" | grep '^avail_mem_kb=' | cut -d= -f2)
+  assert_eq "Default avail_mem_kb is empty" "" "$actual"
+}
+
+test_avail_mem_kb_in_output
+test_avail_mem_kb_default_empty
+
+# ============================================================
 # Tier 1: Target extraction
 # ============================================================
 echo ""

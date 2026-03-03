@@ -13,6 +13,7 @@ set -euo pipefail
 #   -j, --max-jobs N          Override auto-computed parallelism
 #   -r, --max-retries N       Max OOM retry cycles (default: 10)
 #   -m, --monitor-interval N  Seconds between progress output (default: 90)
+#   --avail-mem-kb N          Available memory in KB; sets per-job ulimit -v
 #   --dry-run                 Print computed settings and exit
 
 # --- Defaults ---
@@ -57,6 +58,11 @@ run_ninja() {
   local log_file="${build_dir}/build.log"
   local last_emitted=0
 
+  if [[ -n "${avail_mem_kb:-}" ]]; then
+    local mem_limit=$(( avail_mem_kb / jobs ))
+    echo ">>> ulimit -Sv ${mem_limit} KB (${avail_mem_kb} KB / ${jobs} jobs)"
+    ulimit -Sv "$mem_limit"
+  fi
   echo ">>> ninja -C ${build_dir} -j${jobs} $*"
   ninja -C "${build_dir}" -j "${jobs}" "$@" > "${log_file}" 2>&1 &
   local ninja_pid=$!
@@ -79,6 +85,7 @@ main() {
   local max_jobs=""
   local max_retries="$DEFAULT_MAX_RETRIES"
   local monitor_interval="$DEFAULT_MONITOR_INTERVAL"
+  local avail_mem_kb=""
   local dry_run=false
   local targets=()
 
@@ -88,6 +95,7 @@ main() {
       -j|--max-jobs)         max_jobs="$2"; shift 2 ;;
       -r|--max-retries)      max_retries="$2"; shift 2 ;;
       -m|--monitor-interval) monitor_interval="$2"; shift 2 ;;
+      --avail-mem-kb)        avail_mem_kb="$2"; shift 2 ;;
       --dry-run)             dry_run=true; shift ;;
       -*)                    echo "Unknown option: $1" >&2; exit 1 ;;
       *)                     targets+=("$1"); shift ;;
@@ -101,6 +109,7 @@ main() {
     echo "jobs=${high_jobs}"
     echo "max_retries=${max_retries}"
     echo "monitor_interval=${monitor_interval}"
+    echo "avail_mem_kb=${avail_mem_kb}"
     echo "targets=${targets[*]:-}"
     return 0
   fi
