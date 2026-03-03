@@ -1,0 +1,8 @@
+ignore:
+  # NINJA_MAX_JOBS is intentionally optional — defined as "" at the workflow level
+  # so it can be overridden by uncommenting and setting a value. An empty string is
+  # falsy in GHA expressions, so the build-arg is omitted when unset. actionlint
+  # flags env.NINJA_MAX_JOBS because the key is commented out in the top-level env:
+  # block and therefore cannot be statically verified.
+  - 'Context access might be invalid: NINJA_MAX_JOBS'
+  
