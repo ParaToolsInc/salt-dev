@@ -3,13 +3,20 @@
 # inside the salt-dev-tools Docker container.
 #
 # Usage:
-#   ./install-intel-ifx.sh [VERSION]
+#   ./install-intel-ifx.sh [OPTIONS] [VERSION]
+#
+# Options:
+#   --trust-intel-repo   Accept [trusted=yes] for Intel APT repo on Debian 13+
+#                        (bypasses interactive prompt; TLS still protects download)
 #
 # Examples:
-#   ./install-intel-ifx.sh          # installs 2025.2 (default)
-#   ./install-intel-ifx.sh 2025.0   # installs 2025.0
-#   ./install-intel-ifx.sh 2024.1   # installs 2024.1
-#   ./install-intel-ifx.sh latest   # installs latest available
+#   ./install-intel-ifx.sh                        # installs 2025.2 (default)
+#   ./install-intel-ifx.sh 2025.3                 # installs 2025.3
+#   ./install-intel-ifx.sh 2025.0                 # installs 2025.0
+#   ./install-intel-ifx.sh 2024.1                 # installs 2024.1
+#   ./install-intel-ifx.sh latest                 # installs latest available
+#   ./install-intel-ifx.sh --trust-intel-repo     # non-interactive Debian 13+
+#   ./install-intel-ifx.sh --trust-intel-repo 2025.3  # both options combined
 #
 # After installation, source the generated environment file:
 #   source /opt/intel/oneapi/env.sh
@@ -26,7 +33,17 @@ set -euo pipefail
 ###############################################################################
 
 DEFAULT_VERSION="2025.2"
-VERSION="${1:-$DEFAULT_VERSION}"
+TRUST_INTEL_REPO=false
+VERSION=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --trust-intel-repo) TRUST_INTEL_REPO=true; shift ;;
+    -*) echo "ERROR: Unknown option: $1" >&2; exit 1 ;;
+    *) VERSION="$1"; shift ;;
+  esac
+done
+VERSION="${VERSION:-$DEFAULT_VERSION}"
 
 INTEL_GPG_KEY_URL="https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB"
 INTEL_REPO_URL="https://apt.repos.intel.com/oneapi"
@@ -63,10 +80,16 @@ resolve_package_version() {
     latest)
       echo "latest"
       ;;
-    2025.2 | 2025.2.1)
+    2025.3 | 2025.3.0 | 2025.3.1 | 2025.3.2)
+      echo "2025.3"
+      ;;
+    2025.2 | 2025.2.0 | 2025.2.1)
       echo "2025.2"
       ;;
-    2025.0 | 2025.0.1)
+    2025.1 | 2025.1.0 | 2025.1.1 | 2025.1.2 | 2025.1.3)
+      echo "2025.1"
+      ;;
+    2025.0 | 2025.0.0 | 2025.0.1)
       echo "2025.0"
       ;;
     2024.1 | 2024.1.0)
@@ -95,6 +118,45 @@ resolve_package_version() {
 # Pre-flight checks
 ###############################################################################
 
+# Detect Debian version and handle Intel APT signature issues on Debian 13+.
+# Debian 13 (trixie) uses sqv instead of gpg for APT signature verification,
+# and sqv rejects Intel's OpenPGP key format. TLS still protects downloads.
+INTEL_REPO_TRUSTED=""
+detect_debian_version() {
+  local version_id=""
+  if [ -f /etc/os-release ]; then
+    # shellcheck source=/dev/null
+    version_id=$(. /etc/os-release && echo "${VERSION_ID:-}")
+  fi
+  if [ -n "$version_id" ] && [ "$version_id" -ge 13 ] 2>/dev/null; then
+    if [ "$TRUST_INTEL_REPO" = true ]; then
+      info "Debian ${version_id} detected; --trust-intel-repo set, using [trusted=yes]."
+      INTEL_REPO_TRUSTED="yes"
+    else
+      warn "Debian ${version_id} detected."
+      warn "Intel's APT repository GPG key uses an OpenPGP format that Debian 13+'s"
+      warn "signature verifier (sqv) cannot process. APT signature verification will fail."
+      warn ""
+      warn "Options:"
+      warn "  1) Continue with [trusted=yes] — bypasses signature check (TLS still protects download)"
+      warn "  2) Abort and wait for Intel to update their repository signing key"
+      warn ""
+      warn "To skip this prompt, re-run with --trust-intel-repo"
+      echo ""
+      read -r -p "Continue with [trusted=yes]? [y/N] " answer
+      case "$answer" in
+        [yY]|[yY][eE][sS])
+          info "Proceeding with [trusted=yes] for Intel repository."
+          INTEL_REPO_TRUSTED="yes"
+          ;;
+        *)
+          die "Aborted. Re-run when Intel fixes their APT repository signing."
+          ;;
+      esac
+    fi
+  fi
+}
+
 preflight() {
   # Verify we're on Linux
   [ "$(uname -s)" = "Linux" ] || die "This script only supports Linux."
@@ -113,6 +175,8 @@ preflight() {
 
   # Verify gpg is available (needed for keyring creation)
   command -v gpg > /dev/null 2>&1 || die "gpg not found. Install gnupg first."
+
+  detect_debian_version
 }
 
 ###############################################################################
@@ -133,7 +197,11 @@ setup_intel_repo() {
   rm -f "$tmpkey"
 
   # Add the repository with the signed-by keyring
-  echo "deb [arch=amd64 signed-by=${INTEL_KEYRING}] ${INTEL_REPO_URL} all main" \
+  local repo_opts="arch=amd64 signed-by=${INTEL_KEYRING}"
+  if [ "$INTEL_REPO_TRUSTED" = "yes" ]; then
+    repo_opts="arch=amd64 trusted=yes"
+  fi
+  echo "deb [${repo_opts}] ${INTEL_REPO_URL} all main" \
     | as_root tee "$INTEL_REPO_LIST" > /dev/null
 
   info "Updating package lists..."

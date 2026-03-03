@@ -1,17 +1,13 @@
 # syntax=docker/dockerfile:1.4
 # Stage 1. Check out LLVM source code and run the build.
-FROM debian:12 AS builder
+FROM debian:13 AS builder
 LABEL maintainer="ParaTools Inc."
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
-# Install build dependencies of llvm.
-# First, Update the apt's source list and include the sources of the packages.
-# Improve caching too
+# Configure apt caching for BuildKit mount reuse
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  deb_src_lines=$(grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g') || true
-  echo "$deb_src_lines" >> /etc/apt/sources.list
   rm -f /etc/apt/apt.conf.d/docker-clean
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
@@ -82,8 +78,8 @@ EOC
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  wget --no-verbose "https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-linux.zip"
-  echo "b901ba96e486dce377f9a070ed4ef3f79deb45f4ffe2938f8e7ddc69cfb3df77 ninja-linux.zip" \
+  wget --no-verbose "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip"
+  echo "5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6 ninja-linux.zip" \
     | sha256sum -c
   unzip ninja-linux.zip -d /usr/local/bin
   rm  ninja-linux.zip
@@ -91,7 +87,8 @@ EOC
 
 COPY build-llvm.sh /usr/local/bin/
 ARG NINJA_MAX_JOBS=""
-ARG CI_AVAIL_MEM_KB=13926400
+# Default to just under 12 GB for local docker builds
+ARG AVAIL_MEM_KB=12477235
 
 # Configure and build LLVM/Clang components needed by SALT
 RUN --mount=type=cache,target=/ccache/ <<EOC
@@ -122,6 +119,7 @@ set -euo pipefail
 
   BUILD_LLVM_ARGS=(--build-dir "$BUILD_DIR")
   if [ -n "${NINJA_MAX_JOBS:-}" ]; then BUILD_LLVM_ARGS+=(--max-jobs "${NINJA_MAX_JOBS}"); fi
+  if [ -n "${AVAIL_MEM_KB:-}" ]; then BUILD_LLVM_ARGS+=(--avail-mem-kb "${AVAIL_MEM_KB}"); fi
 
   NON_FLANG_TARGETS=(
     install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports
@@ -143,17 +141,6 @@ set -euo pipefail
   ccache -s
 
   if ${CI:-false}; then
-
-    # Protect CI runner from hard OOM kills:
-    # - oom_score_adj: prefer killing compiler processes over Docker daemon/runner agent
-    # - ulimit -v: cap per-process virtual memory so ninja gets a clean failure
-    #   (enables build-llvm.sh retry logic instead of runner crash)
-    echo 300 > /proc/$$/oom_score_adj 2>/dev/null \
-      && echo "oom_score_adj set to 300" \
-      || echo "WARNING: could not set oom_score_adj (sandboxed /proc?)"
-    ulimit -v 3565158 2>/dev/null \
-      && echo "ulimit -v set to 3565158 KB (3.4 GB)" \
-      || echo "WARNING: could not set ulimit -v (restricted?)"
 
     echo "=== CI mode: phased LLVM build to prevent OOM ==="
 
@@ -212,7 +199,7 @@ set -euo pipefail
 EOC
 
 # Stage 2. Produce a minimal release image with build results.
-FROM debian:12
+FROM debian:13
 LABEL maintainer="ParaTools Inc."
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # Create the docker group with GID 967
@@ -240,7 +227,7 @@ set -euo pipefail
   apt-get update
   # libstdc++-10-dev \
   apt-get install -y --no-install-recommends \
-    ccache libz-dev libelf1 libtinfo-dev make binutils cmake git \
+    ccache libz-dev libelf1t64 libtinfo-dev make binutils cmake git \
     gcc g++ gfortran wget ca-certificates \
     mpich libmpich-dev libmpich12 \
     less man

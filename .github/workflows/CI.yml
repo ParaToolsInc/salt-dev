@@ -31,7 +31,7 @@ jobs:
       -
         name: Install hadolint
         run: |
-          HADOLINT_VERSION=v2.12.0
+          HADOLINT_VERSION=v2.14.0
           curl -sL "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64" \
             -o /usr/local/bin/hadolint
           chmod +x /usr/local/bin/hadolint
@@ -103,10 +103,6 @@ jobs:
           restore-keys: |
             ccache-${{ hashFiles('Dockerfile') }}-
             ccache-
-          # save-always is deprecated but still the only mechanism to persist
-          # ccache on job failure/timeout (cold LLVM builds can exceed 6h).
-          # cache-dance extracts in its post step; actions/cache saves after.
-          save-always: true
       -
         name: Inject/extract ccache for BuildKit
         uses: reproducible-containers/buildkit-cache-dance@v3.3.2
@@ -119,7 +115,6 @@ jobs:
               "ccache-tau": "/home/salt/ccache"
             }
           skip-extraction: ${{ steps.ccache.outputs.cache-hit == 'true' }}
-          save-always: true
       -
         name: Compute cache tag
         id: cache-tag
@@ -136,6 +131,7 @@ jobs:
           pull: true
           build-args: |
             CI=true
+            AVAIL_MEM_KB=16567500
             ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
@@ -152,6 +148,7 @@ jobs:
           file: ./Dockerfile
           build-args: |
             CI=true
+            AVAIL_MEM_KB=16567500
             ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
           push: false
           tags: salt-dev:cache-warmup
