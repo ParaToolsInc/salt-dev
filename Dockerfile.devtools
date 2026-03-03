@@ -5,6 +5,7 @@ ARG BASE_TAG=latest
 ARG BASE_IMAGE=paratools/salt-dev
 FROM ${BASE_IMAGE}:${BASE_TAG}
 LABEL maintainer="ParaTools Inc."
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Switch to root for package installation
 USER root
@@ -57,6 +58,8 @@ set -euo pipefail
 EOC
 
 # Install Claude Code globally via npm
+# Intentionally unpinned: always install latest Claude Code
+# hadolint ignore=DL3016
 RUN npm install -g @anthropic-ai/claude-code
 
 # Copy Intel IFX installer script (run manually when needed)

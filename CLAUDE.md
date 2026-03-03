@@ -18,7 +18,7 @@ bash lint.sh
 ## Conventions
 
 - Shell scripts use `set -euo pipefail`
-- Hadolint suppressions go in `.hadolint.yaml` with rationale comments, never inline `# hadolint ignore=`
+- Hadolint suppressions: prefer inline `# hadolint ignore=DLxxxx` on the line directly above the instruction; put rationale on a separate comment line above
 - When adding new Dockerfiles, shell scripts, workflows, or JSON files, add them to `lint.sh`
 - Supply chain: verify downloads with sha256, pin GPG fingerprints, prefer Debian packages over `curl|bash`
 - In workflow `run:` blocks, use `$GITHUB_REF` not `${{ github.ref }}` (script injection prevention)
