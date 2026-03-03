@@ -9,3 +9,13 @@ LICENSE
 /patches/LICENSE
 /patches/.git/
 
+# Dev tooling — not used by any Dockerfile
+/.claude/
+/.devcontainer/
+/.gitignore
+/.gitmodules
+/.actionlint.yaml
+/.hadolint.yaml
+/lint.sh
+/test-build-llvm.sh
+
