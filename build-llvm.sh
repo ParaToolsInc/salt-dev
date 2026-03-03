@@ -18,7 +18,7 @@ set -euo pipefail
 
 # --- Defaults ---
 DEFAULT_BUILD_DIR="/llvm-project/llvm/build"
-DEFAULT_MAX_RETRIES=10
+DEFAULT_MAX_RETRIES=20
 DEFAULT_MONITOR_INTERVAL=90
 
 # --- Functions ---

@@ -201,7 +201,6 @@ EOC
 # Stage 2. Produce a minimal release image with build results.
 FROM debian:13
 LABEL maintainer="ParaTools Inc."
-SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # Create the docker group with GID 967
 RUN <<EOC
 #!/usr/bin/env bash
@@ -274,6 +273,7 @@ set -euo pipefail
   make -C "$PDT_DIR" -j install
   rm -rf pdt*
   git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
+  set +euo pipefail
   tau2/installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   tau2/installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
@@ -282,6 +282,7 @@ set -euo pipefail
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   tau2/installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
+  set -euo pipefail
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
   # Remove ccache symlinks and restore direct compiler links for end users
