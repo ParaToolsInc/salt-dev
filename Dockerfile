@@ -258,7 +258,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
 # pipefail is toggled inside the heredoc; not set in SHELL because installtau returns non-zero
-# hadolint ignore=DL4006
+# hadolint ignore=DL3003,DL4006
 RUN --mount=type=cache,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
