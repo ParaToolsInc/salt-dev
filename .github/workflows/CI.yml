@@ -29,9 +29,6 @@ jobs:
         name: Checkout
         uses: actions/checkout@v6
       -
-        name: Run build script tests
-        run: bash test-build-llvm.sh
-      -
         name: Install hadolint
         run: |
           HADOLINT_VERSION=v2.12.0
@@ -46,6 +43,9 @@ jobs:
       -
         name: Run linters
         run: bash lint.sh
+      -
+        name: Run build script tests
+        run: bash test-build-llvm.sh
 
   build-base:
     needs: lint
