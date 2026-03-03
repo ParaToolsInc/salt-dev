@@ -96,7 +96,7 @@ run_check "shellcheck" shellcheck --external-sources --source-path=SCRIPTDIR "${
 run_check "actionlint" actionlint "${WORKFLOWS[@]}"
 
 # jq --exit-status with 'empty' returns 0 on valid JSON, non-zero otherwise
-# shellcheck disable=SC2329  # invoked indirectly via run_check
+# shellcheck disable=SC2329,SC2317  # invoked indirectly via run_check
 jq_check() {
   local rc=0
   for f in "${JSON_FILES[@]}"; do
