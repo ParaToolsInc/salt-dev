@@ -87,8 +87,8 @@ EOC
 
 COPY build-llvm.sh /usr/local/bin/
 ARG NINJA_MAX_JOBS=""
-# Default to just under 12 GB for local docker builds
-ARG AVAIL_MEM_KB=12477235
+# Default to ~19 GB for local docker builds
+ARG AVAIL_MEM_KB=20000000
 
 # Configure and build LLVM/Clang components needed by SALT
 RUN --mount=type=cache,target=/ccache/ <<EOC
