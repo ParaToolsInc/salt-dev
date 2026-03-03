@@ -2,6 +2,7 @@
 # Stage 1. Check out LLVM source code and run the build.
 FROM debian:12 AS builder
 LABEL maintainer="ParaTools Inc."
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Install build dependencies of llvm.
 # First, Update the apt's source list and include the sources of the packages.
@@ -9,7 +10,8 @@ LABEL maintainer="ParaTools Inc."
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g' >> /etc/apt/sources.list || true
+  deb_src_lines=$(grep deb /etc/apt/sources.list | sed 's/^deb/deb-src /g') || true
+  echo "$deb_src_lines" >> /etc/apt/sources.list
   rm -f /etc/apt/apt.conf.d/docker-clean
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
@@ -30,6 +32,8 @@ EOC
 ARG CI=false
 ARG LLVM_VER=19
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
+# cd inside heredoc script; WORKDIR can't replace it
+# hadolint ignore=DL3003
 RUN --mount=type=cache,target=/git <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
@@ -41,11 +45,6 @@ set -euo pipefail
     echo "Removing /git/llvm-project.git and forcing a new checkout!"
     rm -rf /git/llvm-project.git
   fi
-  if ${CI:-false}; then
-    # Github CI never seems to use the cached git directory :-[
-    echo "Running under CI. \$CI=$CI. Shallow cloning will be used if a clone is required."
-#    export SHALLOW='--depth=1'
-  fi
   if mkdir llvm-project && git --git-dir=/git/llvm-project.git -C llvm-project pull origin release/${LLVM_VER}.x --ff-only
   then
     echo "WARNING: Using cached llvm git repository and pulling updates"
@@ -54,7 +53,7 @@ set -euo pipefail
   else
     echo "Cloning a fresh LLVM repository"
     git clone --separate-git-dir=/git/llvm-project.git \
-      ${SHALLOW:-} --single-branch \
+      --single-branch \
       --branch=release/${LLVM_VER}.x \
       --filter=blob:none \
       https://github.com/llvm/llvm-project.git
@@ -107,8 +106,8 @@ set -euo pipefail
   ccache -s
 
   # Configure the build
-  LLVM_TARGETS_TO_BUILD=""
-  if uname -a | grep x86 ; then export LLVM_TARGETS_TO_BUILD="-DLLVM_TARGETS_TO_BUILD=X86"; fi
+  CMAKE_EXTRA_ARGS=()
+  if uname -a | grep x86 ; then CMAKE_EXTRA_ARGS+=("-DLLVM_TARGETS_TO_BUILD=X86"); fi
   cmake -GNinja \
     -DCMAKE_INSTALL_PREFIX=/tmp/llvm \
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
@@ -116,31 +115,30 @@ set -euo pipefail
     -DLLVM_CCACHE_BUILD=On \
     -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
     -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
-    ${LLVM_TARGETS_TO_BUILD} \
+    "${CMAKE_EXTRA_ARGS[@]}" \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
   BUILD_DIR=/llvm-project/llvm/build
 
-  NON_FLANG_TARGETS="install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
+  BUILD_LLVM_ARGS=(--build-dir "$BUILD_DIR")
+  if [ -n "${NINJA_MAX_JOBS:-}" ]; then BUILD_LLVM_ARGS+=(--max-jobs "${NINJA_MAX_JOBS}"); fi
 
-  # Build libraries, headers, and binaries
-  # Do build
-  ccache -s
-  build-llvm.sh --build-dir "${BUILD_DIR}" \
-    ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
-    ${CI_AVAIL_MEM_KB:+--avail-mem-kb "${CI_AVAIL_MEM_KB}"} \
-    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports \
-    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports \
-    install-clang-resource-headers \
-    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports \
-    install-openmp-resource-headers \
-    install-compiler-rt"
+  NON_FLANG_TARGETS=(
+    install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports
+    install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports
+    install-clang-resource-headers
+    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports
+    install-openmp-resource-headers
+    install-compiler-rt
+  )
 
-  FLANG_TARGETS="tools/flang/install \
-    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports \
-    install-flangFrontend install-flangFrontendTool \
-    install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower \
-    install-FortranParser install-FortranRuntime install-FortranSemantics"
+  FLANG_TARGETS=(
+    tools/flang/install
+    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports
+    install-flangFrontend install-flangFrontendTool
+    install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower
+    install-FortranParser install-FortranRuntime install-FortranSemantics
+  )
 
   ccache -s
 
@@ -161,34 +159,29 @@ set -euo pipefail
 
     # Phase 1: Non-Flang targets at full parallelism (no OOM risk)
     echo "--- Phase 1: Non-Flang targets (parallel) ---"
-    build-llvm.sh --build-dir "$BUILD_DIR" \
-      ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
-      $NON_FLANG_TARGETS
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${NON_FLANG_TARGETS[@]}"
 
     # Phase 2: OOM-fragile .o files at -j1 (fold ~3-4 GB each)
     # Discovered dynamically from ninja build graph after cmake configure
     echo "--- Phase 2: OOM-fragile object files (-j1) ---"
-    OOM_TARGETS=$(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
+    mapfile -t OOM_TARGETS < <(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
       | grep -E 'Fortran(Evaluate|Semantics|Lower)\.dir/(fold|check-|lower-).*\.cpp\.o:' \
       | cut -d: -f1 || true)
-    if [ -n "$OOM_TARGETS" ]; then
-      echo "Building $(echo "$OOM_TARGETS" | wc -l) OOM-fragile targets at -j1"
-      echo "$OOM_TARGETS"
-      ninja -C "$BUILD_DIR" -j1 $OOM_TARGETS
+    if [ ${#OOM_TARGETS[@]} -gt 0 ]; then
+      echo "Building ${#OOM_TARGETS[@]} OOM-fragile targets at -j1"
+      printf '%s\n' "${OOM_TARGETS[@]}"
+      ninja -C "$BUILD_DIR" -j1 "${OOM_TARGETS[@]}"
     else
       echo "WARNING: No OOM-fragile targets found (pattern may need updating)"
     fi
 
     # Phase 3: Flang targets at full parallelism (OOM .o files pre-built)
     echo "--- Phase 3: Flang targets (parallel, OOM files pre-built) ---"
-    build-llvm.sh --build-dir "$BUILD_DIR" \
-      ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
-      $FLANG_TARGETS
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${FLANG_TARGETS[@]}"
   else
     # Local: single pass (adequate memory + build-llvm.sh retry handles OOM)
-    build-llvm.sh --build-dir "$BUILD_DIR" \
-      ${NINJA_MAX_JOBS:+--max-jobs "${NINJA_MAX_JOBS}"} \
-      $NON_FLANG_TARGETS $FLANG_TARGETS
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" \
+      "${NON_FLANG_TARGETS[@]}" "${FLANG_TARGETS[@]}"
   fi
 
   rm -rf /llvm-project/llvm
@@ -198,35 +191,30 @@ EOC
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  find /tmp/llvm -name flang-new
   FLANG_NEW="$(find /tmp/llvm -name flang-new)"
   if [ -z "$FLANG_NEW" ]; then
     echo "ERROR: flang-new not found in /tmp/llvm — Flang build failed?" >&2
     exit 1
   fi
-  FLANG_NEW_DIR="$(dirname "$FLANG_NEW")"
-  cd "$FLANG_NEW_DIR"
-  pwd
-  ln -s flang-new flang # remove for LLVM 20
-  ls -la
+  ln -s flang-new "$(dirname "$FLANG_NEW")/flang" # remove for LLVM 20
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
 COPY patches/ClangTargets.cmake.patch patches/MLIRTargets.cmake.patch \
-     patches/FlangTargets.cmake.patch patches/LLVMExports.cmake.patch ./
+     patches/FlangTargets.cmake.patch patches/LLVMExports.cmake.patch /tmp/
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  find /tmp/llvm -name '*.cmake' -type f
-  patch --strip 1 --ignore-whitespace < ClangTargets.cmake.patch
-  patch --strip 1 --ignore-whitespace < MLIRTargets.cmake.patch
-  patch --strip 1 --ignore-whitespace < FlangTargets.cmake.patch
-  patch --strip 1 --ignore-whitespace < LLVMExports.cmake.patch
+  patch --strip 1 --ignore-whitespace < /tmp/ClangTargets.cmake.patch
+  patch --strip 1 --ignore-whitespace < /tmp/MLIRTargets.cmake.patch
+  patch --strip 1 --ignore-whitespace < /tmp/FlangTargets.cmake.patch
+  patch --strip 1 --ignore-whitespace < /tmp/LLVMExports.cmake.patch
 EOC
 
 # Stage 2. Produce a minimal release image with build results.
 FROM debian:12
 LABEL maintainer="ParaTools Inc."
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # Create the docker group with GID 967
 RUN <<EOC
 #!/usr/bin/env bash
@@ -288,30 +276,25 @@ set -euo pipefail
     ln -vs /usr/bin/ccache /usr/local/bin/$p
   done
   ccache -s
-  echo "verbose=off" > ~/.wgetrc
-  wget https://fs.paratools.com/tau-mirror/pdt_lite.tgz || wget https://tau.uoregon.edu/pdt_lite.tgz
+  wget --no-verbose https://fs.paratools.com/tau-mirror/pdt_lite.tgz \
+    || wget --no-verbose https://tau.uoregon.edu/pdt_lite.tgz
   echo "2fc9e8670f615f5079ae263184804c8ba576981d1648a307a0d65eff97b8f50a pdt_lite.tgz" | sha256sum -c
   tar xzvf pdt_lite.tgz
   rm pdt_lite.tgz
-  cd pdt*
-  ./configure -GNU -prefix=/usr/local
-  make -j
-  make -j install
-  cd ..
+  PDT_DIR=$(echo pdt*)
+  "$PDT_DIR"/configure -GNU -prefix=/usr/local
+  make -C "$PDT_DIR" -j
+  make -C "$PDT_DIR" -j install
   rm -rf pdt*
-  # wget http://tau.uoregon.edu/tau.tgz || wget http://fs.paratools.com/tau-mirror/tau.tgz
-  # tar xzvf tau.tgz
   git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
-  cd tau*
-  ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
+  tau2/installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
+  tau2/installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
+  tau2/installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
+  tau2/installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
   # Remove ccache symlinks and restore direct compiler links for end users
