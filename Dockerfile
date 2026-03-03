@@ -148,16 +148,18 @@ set -euo pipefail
     echo "--- Phase 1: Non-Flang targets (parallel) ---"
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${NON_FLANG_TARGETS[@]}"
 
-    # Phase 2: OOM-fragile .o files at -j1 (fold ~3-4 GB each)
-    # Discovered dynamically from ninja build graph after cmake configure
-    echo "--- Phase 2: OOM-fragile object files (-j1) ---"
+    # Phase 2: OOM-fragile .o files at -j2
+    # Targets discovered from OOM failures on CI (-j4, 4.1 GB) and local (-j8, 2.5 GB).
+    # Matched by CMake target directory; individual files within these dirs tend to be
+    # memory-hungry due to heavy template instantiation in Flang/MLIR.
+    echo "--- Phase 2: OOM-fragile object files (-j2) ---"
     mapfile -t OOM_TARGETS < <(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
-      | grep -E 'Fortran(Evaluate|Semantics|Lower)\.dir/(fold|check-|lower-).*\.cpp\.o:' \
+      | grep -E '(Fortran(Evaluate|Semantics|Lower|Parser)|FIRCodeGen|flangFrontend(Tool)?|MLIRMlirOptMain|bbc)\.dir/.*\.cpp\.o:' \
       | cut -d: -f1 || true)
     if [ ${#OOM_TARGETS[@]} -gt 0 ]; then
-      echo "Building ${#OOM_TARGETS[@]} OOM-fragile targets at -j1"
+      echo "Building ${#OOM_TARGETS[@]} OOM-fragile targets at -j2"
       printf '%s\n' "${OOM_TARGETS[@]}"
-      ninja -C "$BUILD_DIR" -j1 "${OOM_TARGETS[@]}"
+      ninja -C "$BUILD_DIR" -j2 "${OOM_TARGETS[@]}"
     else
       echo "WARNING: No OOM-fragile targets found (pattern may need updating)"
     fi
