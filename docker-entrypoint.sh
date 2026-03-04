@@ -35,6 +35,19 @@ if [ -z "$GIT_NAME" ] || [ -z "$GIT_EMAIL" ]; then
   echo "  mount a repo with git config user.name/email configured."
 fi
 
+# --- Claude Code setup ---
+# CLAUDE_CODE_OAUTH_TOKEN provides auth but Claude Code also checks for
+# ~/.claude/settings.json to determine if it has been set up before.
+# Without it, the first-run wizard fires and prompts for browser login
+# even though the token is already present in the environment.
+# attribution.commit/pr set to "" disables co-authorship lines in commits/PRs.
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  mkdir -p ~/.claude
+  if [ ! -f ~/.claude/settings.json ]; then
+    printf '{"attribution":{"commit":"","pr":""}}\n' > ~/.claude/settings.json
+  fi
+fi
+
 # --- GitHub Copilot ---
 GH_TOKEN="${GH_TOKEN:-}"
 if [ -n "$GH_TOKEN" ] && ! gh copilot --help >/dev/null 2>&1; then
