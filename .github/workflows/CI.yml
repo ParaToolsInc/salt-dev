@@ -133,6 +133,8 @@ jobs:
             CI=true
             AVAIL_MEM_KB=16567500
             ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
+          # TODO: remove no-cache-filter after ccache is seeded
+          no-cache-filters: builder
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
           cache-from: |
