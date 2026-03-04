@@ -13,10 +13,11 @@ set -euo pipefail
 EOC
 
 ENV CCACHE_DIR=/ccache
-RUN --mount=type=cache,id=ccache-builder,target=/ccache/ ls -l $CCACHE_DIR
+RUN --mount=type=cache,id=ccache-builder,target=/ccache ls -l $CCACHE_DIR
 
 # Install compiler, cmake, git, ccache etc.
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   apt-get update
@@ -29,8 +30,9 @@ ARG CI=false
 ARG LLVM_VER=19
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 # cd inside heredoc script; WORKDIR can't replace it
+# RUN --mount=type=cache,target=/git <<EO
 # hadolint ignore=DL3003
-RUN --mount=type=cache,target=/git <<EOC
+RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   echo "Checking out LLVM."
@@ -91,7 +93,7 @@ ARG NINJA_MAX_JOBS=""
 ARG AVAIL_MEM_KB=20000000
 
 # Configure and build LLVM/Clang components needed by SALT
-RUN --mount=type=cache,id=ccache-builder,target=/ccache/ <<EOC
+RUN --mount=type=cache,id=ccache-builder,target=/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   nproc --all || lscpu || true
@@ -223,7 +225,8 @@ set -euo pipefail
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
+RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   apt-get update
