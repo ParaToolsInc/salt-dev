@@ -37,6 +37,8 @@ RUN <<EOC
 set -euo pipefail
   echo "Checking out LLVM."
   echo "\$CI = $CI"
+  # Ensure /git exists when not provided by a cache mount
+  mkdir -p /git || true
   # If the job is killed during a git operation the cache might be broken
   if [ -f /git/llvm-project.git/index.lock ]; then
     echo "index.lock file found--git repo might be in a broken state."
