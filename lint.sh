@@ -26,9 +26,11 @@ DOCKERFILES=(
 
 SHELL_SCRIPTS=(
   lint.sh
+  build-devtools.sh
   build-llvm.sh
   docker-entrypoint.sh
   install-intel-ifx.sh
+  run-salt-dev.sh
   test-build-llvm.sh
   .github/actions/docker-cache/backup.sh
   .github/actions/docker-cache/restore.sh
