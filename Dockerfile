@@ -13,7 +13,7 @@ set -euo pipefail
 EOC
 
 ENV CCACHE_DIR=/ccache
-RUN --mount=type=cache,target=/ccache/ ls -l $CCACHE_DIR
+RUN --mount=type=cache,id=ccache-builder,target=/ccache/ ls -l $CCACHE_DIR
 
 # Install compiler, cmake, git, ccache etc.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
@@ -91,7 +91,7 @@ ARG NINJA_MAX_JOBS=""
 ARG AVAIL_MEM_KB=20000000
 
 # Configure and build LLVM/Clang components needed by SALT
-RUN --mount=type=cache,target=/ccache/ <<EOC
+RUN --mount=type=cache,id=ccache-builder,target=/ccache/ <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   nproc --all || lscpu || true
@@ -258,7 +258,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
 # hadolint ignore=DL3003
-RUN --mount=type=cache,target=/home/salt/ccache <<EOC
+RUN --mount=type=cache,id=ccache-tau,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   # Temporarily symlink compiler names to ccache so TAU/PDT builds use the cache
