@@ -208,7 +208,7 @@ cmd+=(-v "${mount_local}:${mount_container}")
 # path (gitdir: /path/to/.git/worktrees/<name>). Mount the main repo's .git
 # directory at its host path so git can resolve the reference inside the container.
 if [[ -f "${mount_local}/.git" ]]; then
-  git_common_dir="$(cd "$mount_local" && git rev-parse --git-common-dir 2>/dev/null || true)"
+  git_common_dir="$(cd "$mount_local" && git rev-parse --git-common-dir 2>/dev/null)" || true
   if [[ -n "$git_common_dir" && -d "$git_common_dir" ]]; then
     warn "Mount source is a git worktree; adding bind mount for git directory"
     cmd+=(-v "${git_common_dir}:${git_common_dir}")

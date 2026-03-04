@@ -55,7 +55,12 @@ trap cleanup EXIT
 # Defaults
 ###############################################################################
 
-BASE_IMAGE="salt-dev"
+# Prefer local salt-dev image; fall back to Docker Hub if not present
+if docker image inspect salt-dev:latest &>/dev/null; then
+  BASE_IMAGE="salt-dev"
+else
+  BASE_IMAGE="paratools/salt-dev"
+fi
 BASE_TAG="latest"
 OUTPUT_TAG="intel-2025.2"
 IFX_VERSION="2025.2"
