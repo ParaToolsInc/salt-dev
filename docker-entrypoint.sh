@@ -36,11 +36,12 @@ if [ -z "$GIT_NAME" ] || [ -z "$GIT_EMAIL" ]; then
 fi
 
 # --- Claude Code setup ---
-# CLAUDE_CODE_OAUTH_TOKEN provides auth but Claude Code also checks for
-# ~/.claude/settings.json to determine if it has been set up before.
-# Without it, the first-run wizard fires and prompts for browser login
-# even though the token is already present in the environment.
-# attribution.commit/pr set to "" disables co-authorship lines in commits/PRs.
+# CLAUDE_CODE_OAUTH_TOKEN provides auth but Claude Code checks two separate
+# things: API auth (the token) and onboarding completion (~/.claude.json).
+# Without ~/.claude.json the first-run wizard fires and prompts for browser
+# login even though the token is already present in the environment.
+# ~/.claude/settings.json controls preferences; attribution="" disables
+# co-authorship lines in commits/PRs.
 if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
   mkdir -p ~/.claude
   if [ ! -f ~/.claude/settings.json ]; then
