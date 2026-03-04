@@ -98,7 +98,9 @@ jobs:
         id: ccache
         uses: actions/cache@v4
         with:
-          path: /tmp/ccache-buildkit
+          path: |
+            /tmp/ccache-buildkit/ccache-builder
+            /tmp/ccache-buildkit/ccache-tau
           key: ccache-${{ hashFiles('Dockerfile') }}-${{ github.sha }}
           restore-keys: |
             ccache-${{ hashFiles('Dockerfile') }}-
@@ -111,8 +113,8 @@ jobs:
           cache-dir: /tmp/ccache-buildkit
           cache-map: |
             {
-              "ccache-builder": {"target": "/ccache", "id": "ccache-builder"},
-              "ccache-tau": {"target": "/home/salt/ccache", "id": "ccache-tau"}
+              "/tmp/ccache-buildkit/ccache-builder": {"target": "/ccache", "id": "ccache-builder"},
+              "/tmp/ccache-buildkit/ccache-tau": {"target": "/home/salt/ccache", "id": "ccache-tau"}
             }
           skip-extraction: ${{ steps.ccache.outputs.cache-hit == 'true' }}
       -
