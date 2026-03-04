@@ -111,8 +111,8 @@ jobs:
           cache-dir: /tmp/ccache-buildkit
           cache-map: |
             {
-              "ccache-builder": "/ccache",
-              "ccache-tau": "/home/salt/ccache"
+              "ccache-builder": {"target": "/ccache", "id": "ccache-builder"},
+              "ccache-tau": {"target": "/home/salt/ccache", "id": "ccache-tau"}
             }
           skip-extraction: ${{ steps.ccache.outputs.cache-hit == 'true' }}
       -
