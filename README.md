@@ -12,104 +12,111 @@ The patches are stored here: https://github.com/ParaToolsInc/salt-llvm-patches
 
 ## Building the development container for local use
 
-First, BuildKit, caching and intelligent layer creation and ordering have been employed
-in an attempt to minimize time spent waiting for the container to build.
-Certain operations are unavoidably expensive when performed for the first time,
-however, steps have been taken to maximize caching and minimuze rebuild times.
-The first build on a new machine will always be expensive but subsequent updates
-should be comparatively snappy and painless.
+BuildKit, caching, and intelligent layer ordering are used to minimize build times.
+The first build on a new machine is expensive, but subsequent rebuilds are fast
+thanks to ccache and Docker layer caching.
 
-To build the development image with BuildKit, the following command may be employed:
+### Base image (`salt-dev`)
+
+Build with BuildKit:
 
 ``` shell
 docker buildx build --pull -t salt-dev --load .
 ```
 
-To usethe development image in testing, something like this should work:
+Or use `build-devtools.sh`, which automatically detects and uses the local `salt-dev` image
+and builds the full devtools image on top in one step:
+
+``` shell
+bash build-devtools.sh --no-push --no-intel   # devtools layer only, no Intel IFX
+bash build-devtools.sh --no-push              # devtools layer + Intel IFX compilers
+```
+
+Run against a local SALT worktree:
 
 ``` shell
 docker run -it --tmpfs=/dev/shm:rw,nosuid,nodev,exec --privileged -v $(pwd):/home/salt/src salt-dev
 ```
 
-This will mount the working directory (usually your SALT worktree) into `/home/salt/src`.
+This mounts the working directory (usually your SALT worktree) into `/home/salt/src`.
 
-## Dev Tools Image (`salt-dev-tools`)
+### Dev Tools image (`salt-dev-tools`)
 
-A variant of the development container with interactive tooling for AI-assisted development, debugging, and profiling. Extends the base `salt-dev` image.
+A variant with interactive tooling for AI-assisted development, debugging, and profiling.
+Includes: Claude Code, GitHub CLI, Node.js 22, emacs, ripgrep, silversearcher, gdb, valgrind,
+htop, jq, bat, and python3.
 
-Includes: Claude Code, GitHub CLI, Node.js 22, emacs, ripgrep, silversearcher, gdb, valgrind, htop, jq, bat, and python3.
+Build using the helper script:
 
-### Building
+``` shell
+bash build-devtools.sh --no-push --no-intel   # salt-dev-tools only, no Intel IFX (local)
+bash build-devtools.sh --no-push              # salt-dev-tools + Intel IFX installed (local)
+bash build-devtools.sh                        # build, install IFX, and push to Docker Hub
+```
+
+To pin a specific IFX version:
+
+``` shell
+bash build-devtools.sh --no-push --ifx-version=2025.3 --tag=intel-2025.3
+```
+
+Or build directly with BuildKit (requires a local `salt-dev` image):
 
 ``` shell
 docker buildx build -f Dockerfile.devtools -t salt-dev-tools --load .
 ```
 
-### Running
+Launch interactively (reads `CLAUDE_CODE_OAUTH_TOKEN` and `GH_TOKEN` from the environment):
 
 ``` shell
-docker run -it \
-  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
-  -e GH_TOKEN="$GH_TOKEN" \
-  -e GIT_AUTHOR_NAME="Your Name" \
-  -e GIT_AUTHOR_EMAIL="you@example.com" \
-  -v $(pwd):/home/salt/src \
-  salt-dev-tools
+bash run-salt-dev.sh
 ```
 
 ### VS Code Devcontainer
 
-Open this repository in VS Code and accept the "Reopen in Container" prompt. The devcontainer configuration will build the image automatically and install GitHub Copilot extensions.
+Open this repository in VS Code and accept the "Reopen in Container" prompt.
+The devcontainer configuration will build the image automatically and install GitHub Copilot extensions.
+
+## Scripts
+
+| Script | Description | Example |
+|---|---|---|
+| `build-devtools.sh` | Builds `salt-dev-tools`, optionally installs Intel IFX, and pushes to Docker Hub | `bash build-devtools.sh --no-push` |
+| `run-salt-dev.sh` | Launches a `salt-dev` or `salt-dev-tools` container with sensible defaults; resolves git identity and API tokens from the environment | `bash run-salt-dev.sh` |
+| `install-intel-ifx.sh` | Installs Intel IFX/ICX/ICPX compilers inside `salt-dev-tools`; handles Debian 13+ APT signature quirks | `./install-intel-ifx.sh 2025.2` |
+| `build-llvm.sh` | OOM-resilient LLVM build wrapper around ninja; maximizes parallelism and auto-recovers by retrying failed targets at progressively lower `-j` | `bash build-llvm.sh clang flang-new` |
+| `test-build-llvm.sh` | Unit and integration tests for `build-llvm.sh` | `bash test-build-llvm.sh` |
+| `lint.sh` | Runs all linters: hadolint, shellcheck, actionlint, jq | `bash lint.sh` |
 
 ## Optimizations for expensive build steps
 
-The following discusses the major pain points and the steps taken to minimize them.
-
 ### Compiling LLVM/Clang
 
-This is by far the most expensive step.
-On a 2.4 GHz 8-Core Intel Core i9 Mac Book Pro,
-the initial build of this image layer takes approximately 150-200 minutes.
-It is therefore important that:
+Cold build: ~150-200 min on an 8-core machine. With a warm ccache: ~1 min.
 
-1. This layer is built early to maximise the opportunity for reuse
-2. Cheaper steps that are likely to change should be placed after the `RUN` step compiling llvm/clang in the `Dockerfile`
-3. Some sort of compiler cache is employed, here we use ccache, to speed up the build even when the layer needs to be rebuilt
-4. The compiler cache needs to be made available to the build even when the layer is rebuilt.
-
-The first build will still take a long time (~150-200 minutes on a 2.4 GHz 8-Core Intel Core i9),
-however subsequent rebuilds will take about 1 minute (on a 2.4 GHz 8-Core Intel Core i9) when the cache is
-present.
-This is acheived through the use of `ccache` and the `--mount=type=cache,target=/some/path` option to the
-`RUN` command in the Dockerfile.
-In the event that previous layers have not changed and neither has the layer defining the llvm/clang compilation,
-then, of course, a previous cached layer may just be reused taking about a second or so.
+The Dockerfile uses `--mount=type=cache` to persist the ccache directory across BuildKit invocations.
+In CI, the [`reproducible-containers/buildkit-cache-dance`](https://github.com/reproducible-containers/buildkit-cache-dance)
+action bridges BuildKit's internal cache mount to GitHub Actions' `actions/cache` store —
+exporting the cache to a tarball on each run and importing it back before the next build,
+so ccache survives across ephemeral CI runners.
 
 ### Cloning/updating llvm-project
 
-Shallow clones are fastest, but they are less than performant when a subsequent update of the repository
-(via `git fetch` or `git pull`) is required.
-An alternate to shallow clones is to use the `--filter=blob:none` option,
-which fetches entire histories, commits and trees, but only the blobs needed by `HEAD`.
-This allows the repository to be worked with and updated in an efficient way takes considerably less time
-than a full clone.
-(On a 2.4 GHz 8-Core Intel Core i9 with ~40 Mbit/s download speed `--single-branch` and `--filter=blob:none`
-reduce the clone time from over 5 minutes to 2.5-3 minutes.
-A shallow clone using `--single-branch` and `--depth=1` takes about 1.5-2 minutes.)
-By not using a shallow clone, we can cache the `.git` folder, and efficiently reset the work tree and
-fetch any updates on the branch if the cache exists.
-If the cache doesn't exist a new clone is performed.
+Uses `--filter=blob:none` (blobless clone) to fetch full history without downloading all blobs upfront,
+roughly halving clone time versus a full clone while still supporting efficient updates.
+Shallow clones (`--depth=1`) are faster initially but degrade on subsequent fetches.
 
 ### Package installation via `apt`
 
-Caching of `apt` packages that can be potentially shared was implemented following the example
-[here](https://docs.docker.com/engine/reference/builder/#run---mounttypecache)
+`apt` package downloads are cached via `--mount=type=cache` so repeated `apt-get install` steps
+reuse previously downloaded `.deb` files without hitting the network.
 
 ### GitHub Actions caching
 
-Using the official docker GitHub Actions with their support for caching maximizes the amount of caching and
-efficiency of building the image(s) during CI.
-Very useful examples are available [here](https://docs.docker.com/build/ci/github-actions/examples).
+The CI uses a two-layer registry cache strategy: each branch writes to a per-branch
+`buildcache-<ref>` tag and reads from both that and a shared `buildcache` tag.
+On push to `main`, a second build step promotes the branch cache to the shared tag,
+keeping a warm cache available to all branches and new contributors.
 
 [SALT]: https://github.com/ParaToolsInc/salt
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
