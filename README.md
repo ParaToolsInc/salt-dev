@@ -24,14 +24,6 @@ Build with BuildKit:
 docker buildx build --pull -t salt-dev --load .
 ```
 
-Or use `build-devtools.sh`, which automatically detects and uses the local `salt-dev` image
-and builds the full devtools image on top in one step:
-
-``` shell
-bash build-devtools.sh --no-push --no-intel   # devtools layer only, no Intel IFX
-bash build-devtools.sh --no-push              # devtools layer + Intel IFX compilers
-```
-
 Run against a local SALT worktree:
 
 ``` shell
