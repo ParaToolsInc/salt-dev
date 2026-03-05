@@ -109,7 +109,6 @@ jobs:
         with:
           builder: ${{ steps.setup-buildx.outputs.name }}
           cache-dir: /tmp/ccache-buildkit
-          skip-extraction: ${{ steps.ccache.outputs.cache-hit == 'true' }}
       -
         name: Compute cache tag
         id: cache-tag
