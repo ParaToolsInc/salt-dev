@@ -98,12 +98,13 @@ ARG AVAIL_MEM_KB=20000000
 RUN --mount=type=cache,id=ccache-builder,target=/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  nproc --all || lscpu || true
-  pwd
+  echo "Builder cores: $(nproc --all || lscpu || true)""
+  echo "Current directory: $(pwd)""
   if ! git -C /llvm-project status ; then
     echo "llvm-project git repository missing or broken!!!"
     exit 1
   fi
+  echo "CCache stats before build:"
   ccache -s
 
   # Configure the build
