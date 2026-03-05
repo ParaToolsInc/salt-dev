@@ -16,8 +16,7 @@ ENV CCACHE_DIR=/ccache
 RUN --mount=type=cache,id=ccache-builder,target=/ccache ls -l $CCACHE_DIR
 
 # Install compiler, cmake, git, ccache etc.
-# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
-RUN <<EOC
+RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   apt-get update
@@ -228,8 +227,7 @@ set -euo pipefail
   echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 EOC
 
-# RUN --mount=type=cache,target=/var/cache/apt,sharing=locked --mount=type=cache,target=/var/lib/apt,sharing=locked <<EOC
-RUN <<EOC
+RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   apt-get update
@@ -239,7 +237,6 @@ set -euo pipefail
     gcc g++ gfortran wget ca-certificates \
     mpich libmpich-dev libmpich12 \
     less man
-  rm -rf /var/lib/apt/lists/*
 EOC
 
 # Get ninja from builder
