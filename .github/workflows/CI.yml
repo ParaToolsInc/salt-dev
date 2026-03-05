@@ -42,7 +42,7 @@ jobs:
           mv actionlint /usr/local/bin/
       -
         name: Run linters
-        run: bash lint.sh
+        run: bash lint.sh --verbose
       -
         name: Run build script tests
         run: bash test-build-llvm.sh

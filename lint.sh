@@ -8,6 +8,15 @@
 # Runs all checks (non-fail-fast) and reports a summary at the end.
 
 # --- Color output when connected to a terminal ---
+# --- Parse flags ---
+VERBOSE=false
+for arg in "$@"; do
+  case $arg in
+    -v|--verbose) VERBOSE=true ;;
+    *) printf "Unknown argument: %s\n" "$arg" >&2; exit 1 ;;
+  esac
+done
+
 if [[ -t 1 ]]; then
   RED=$'\033[0;31m'
   GREEN=$'\033[0;32m'
@@ -92,10 +101,20 @@ fi
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 # --- Run linters ---
-run_check "hadolint" hadolint "${DOCKERFILES[@]}"
-run_check "shellcheck" shellcheck --external-sources --source-path=SCRIPTDIR "${SHELL_SCRIPTS[@]}"
+# Note: hadolint reports shellcheck violations inside RUN heredocs using the
+# line number of the RUN instruction, not the actual line within the heredoc.
+# Run shellcheck directly on extracted scripts for precise heredoc line numbers.
+HADOLINT_ARGS=()
+SHELLCHECK_ARGS=(--external-sources --source-path=SCRIPTDIR)
+ACTIONLINT_ARGS=()
+if $VERBOSE; then
+  HADOLINT_ARGS+=(--format json)
+  ACTIONLINT_ARGS+=(-verbose)
+fi
+run_check "hadolint" hadolint "${HADOLINT_ARGS[@]}" "${DOCKERFILES[@]}"
+run_check "shellcheck" shellcheck "${SHELLCHECK_ARGS[@]}" "${SHELL_SCRIPTS[@]}"
 # Suppressions managed in .actionlint.yaml
-run_check "actionlint" actionlint "${WORKFLOWS[@]}"
+run_check "actionlint" actionlint "${ACTIONLINT_ARGS[@]}" "${WORKFLOWS[@]}"
 
 # jq --exit-status with 'empty' returns 0 on valid JSON, non-zero otherwise
 # shellcheck disable=SC2329,SC2317  # invoked indirectly via run_check
