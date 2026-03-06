@@ -7,6 +7,7 @@ permissions:
 
 env:
   DOCKER_BUILDKIT: 1
+  LLVM_VER: "20"
   # Uncomment to cap ninja parallelism (reduces peak memory for cold LLVM builds)
   # NINJA_MAX_JOBS: "2"
 
@@ -52,6 +53,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
+        name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      -
         name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -63,18 +69,18 @@ jobs:
           # generate Docker tags based on the following events/attributes
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest-llvm-${{ env.LLVM_VER }},enable={{is_default_branch}}
             type=ref,event=branch
+            type=ref,event=branch,suffix=-llvm-${{ env.LLVM_VER }}
             type=ref,event=pr
             type=semver,pattern={{version}}
+            type=semver,pattern={{version}}-llvm-${{ env.LLVM_VER }}
             type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}.{{minor}}-llvm-${{ env.LLVM_VER }}
             type=semver,pattern={{major}}
+            type=semver,pattern={{major}}-llvm-${{ env.LLVM_VER }}
             type=sha
             type=schedule
-      -
-        name: Checkout
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
       -
         name: Set up Docker Buildx
         id: setup-buildx
@@ -126,6 +132,7 @@ jobs:
           build-args: |
             CI=true
             AVAIL_MEM_KB=16567500
+            LLVM_VER=${{ env.LLVM_VER }}
             ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags:  ${{ steps.meta.outputs.tags }}
@@ -143,6 +150,7 @@ jobs:
           build-args: |
             CI=true
             AVAIL_MEM_KB=16567500
+            LLVM_VER=${{ env.LLVM_VER }}
             ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
           push: false
           tags: salt-dev:cache-warmup
@@ -163,6 +171,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       -
+        name: Checkout
+        uses: actions/checkout@v6
+      -
         name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -172,16 +183,18 @@ jobs:
             ghcr.io/paratoolsinc/salt-dev-tools
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest-llvm-${{ env.LLVM_VER }},enable={{is_default_branch}}
             type=ref,event=branch
+            type=ref,event=branch,suffix=-llvm-${{ env.LLVM_VER }}
             type=ref,event=pr
             type=semver,pattern={{version}}
+            type=semver,pattern={{version}}-llvm-${{ env.LLVM_VER }}
             type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}.{{minor}}-llvm-${{ env.LLVM_VER }}
             type=semver,pattern={{major}}
+            type=semver,pattern={{major}}-llvm-${{ env.LLVM_VER }}
             type=sha
             type=schedule
-      -
-        name: Checkout
-        uses: actions/checkout@v6
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

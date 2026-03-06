@@ -26,7 +26,7 @@ set -euo pipefail
 EOC
 
 ARG CI=false
-ARG LLVM_VER=19
+ARG LLVM_VER=20
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 # cd inside heredoc script; WORKDIR can't replace it
 # RUN --mount=type=cache,target=/git <<EO
@@ -134,9 +134,11 @@ set -euo pipefail
     install-compiler-rt
   )
 
+  # LLVM >= 20 renamed the 'flang-new' binary to 'flang' and its install target accordingly
+  if [ ${LLVM_VER} -ge 20 ]; then FLANG_BIN_TARGET=install-flang; else FLANG_BIN_TARGET=install-flang-new; fi
   FLANG_TARGETS=(
     tools/flang/install
-    install-flang-libraries install-flang-headers install-flang-new install-flang-cmake-exports
+    install-flang-libraries install-flang-headers "$FLANG_BIN_TARGET" install-flang-cmake-exports
     install-flangFrontend install-flangFrontendTool
     install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower
     install-FortranParser install-FortranRuntime install-FortranSemantics
@@ -184,12 +186,20 @@ EOC
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  FLANG_NEW="$(find /tmp/llvm -name flang-new)"
-  if [ -z "$FLANG_NEW" ]; then
-    echo "ERROR: flang-new not found in /tmp/llvm — Flang build failed?" >&2
-    exit 1
+  if [ ${LLVM_VER} -ge 20 ]; then
+    FLANG="$(find /tmp/llvm -name flang -type f)"
+    if [ -z "$FLANG" ]; then
+      echo "ERROR: flang not found in /tmp/llvm — Flang build failed?" >&2
+      exit 1
+    fi
+  else
+    FLANG_NEW="$(find /tmp/llvm -name flang-new -type f)"
+    if [ -z "$FLANG_NEW" ]; then
+      echo "ERROR: flang-new not found in /tmp/llvm — Flang build failed?" >&2
+      exit 1
+    fi
+    ln -s flang-new "$(dirname "$FLANG_NEW")/flang"
   fi
-  ln -s flang-new "$(dirname "$FLANG_NEW")/flang" # remove for LLVM 20
 EOC
 
 # Patch installed cmake exports/config files to not throw an error if not all components are installed
@@ -260,6 +270,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
+ARG LLVM_VER=20
 # hadolint ignore=DL3003
 RUN --mount=type=cache,id=ccache-tau,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
@@ -282,13 +293,15 @@ set -euo pipefail
   git clone --recursive --depth=1 --single-branch https://github.com/UO-OACISS/tau2.git
   # installtau uses ./configure internally which relies on pwd; must cd into tau2
   cd tau2
+  # LLVM >= 20 renamed 'flang-new' to 'flang'
+  if [ ${LLVM_VER} -ge 20 ]; then FLANG_CMD=flang; else FLANG_CMD=flang-new; fi
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=$FLANG_CMD -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=flang-new -pdt=/usr/local -pdt_c++=g++ \
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=$FLANG_CMD -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
