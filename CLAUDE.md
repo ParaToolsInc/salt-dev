@@ -25,5 +25,5 @@ bash lint.sh # run after any Dockerfile/shell/workflow/JSON change
 - Same-repo PRs can read base-branch `actions/cache` entries via `restore-keys`; fork PRs cannot
 - GitHub CLI GPG key fingerprint (`2C61...6059`) pinned in `Dockerfile.devtools` — **expires 2026-09-04**
 - PDT checksum (`2fc9e86...`) pinned in `Dockerfile` — update if upstream changes `pdt_lite.tgz`
-- LLVM build: 150-200 min cold, ~4 min with ccache; `ARG CI=false` triggers shallow clones in GHA only
+- LLVM build: 150-200 min cold, ~4 min with ccache; `ARG PHASED_BUILD=true` enables OOM-aware phased build
 - Intel IFX APT repo has signature verification issues on Debian 13+ (sqv rejects Intel's OpenPGP format); `install-intel-ifx.sh` detects and prompts for `[trusted=yes]`
