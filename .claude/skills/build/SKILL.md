@@ -10,7 +10,7 @@ disable-model-invocation: true
 Build the project Docker images:
 
 1. First run `bash lint.sh` — abort if any check fails
-2. Build base image: `docker buildx build --pull -t salt-dev --load .`
+2. Build base image: `docker buildx build --builder salt-8cpu --pull -t salt-dev --load .`
 3. If $ARGUMENTS contains "devtools" or "all":
-   - Build devtools: `docker buildx build -f Dockerfile.devtools -t salt-dev-tools --load .`
+   - Build devtools: `docker buildx build --builder salt-8cpu -f Dockerfile.devtools -t salt-dev-tools --load .`
 4. Report build success/failure and image sizes via `docker images | grep salt-dev`
