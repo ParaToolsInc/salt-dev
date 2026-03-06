@@ -26,6 +26,7 @@ set -euo pipefail
 EOC
 
 ARG CI=false
+ARG PHASED_BUILD=true
 ARG LLVM_VER=20
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 # cd inside heredoc script; WORKDIR can't replace it
@@ -146,9 +147,9 @@ set -euo pipefail
 
   ccache -s
 
-  if ${CI:-false}; then
+  if ${PHASED_BUILD:-true}; then
 
-    echo "=== CI mode: phased LLVM build to prevent OOM ==="
+    echo "=== Phased LLVM build (OOM-aware) ==="
 
     # Phase 1: Non-Flang targets at full parallelism (no OOM risk)
     echo "--- Phase 1: Non-Flang targets (parallel) ---"
@@ -158,9 +159,14 @@ set -euo pipefail
     # Targets discovered from OOM failures on CI (-j4, 4.1 GB) and local (-j8, 2.5 GB).
     # Matched by CMake target directory; individual files within these dirs tend to be
     # memory-hungry due to heavy template instantiation in Flang/MLIR.
+    #   Flang libs:   FortranEvaluate, FortranSemantics, FortranLower, FortranParser
+    #   Flang driver: flang (fc1_main.cpp.o, driver.cpp.o — worst offender)
+    #   Flang tools:  bbc, fir-opt, fir-lsp-server, tco
+    #   FIR/MLIR:     FIRCodeGen, flangFrontend(Tool), MLIRMlirOptMain,
+    #                 MLIRCAPIRegisterEverything, MLIRLinalgTransforms
     echo "--- Phase 2: OOM-fragile object files (-j2) ---"
     mapfile -t OOM_TARGETS < <(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
-      | grep -E '(Fortran(Evaluate|Semantics|Lower|Parser)|FIRCodeGen|flangFrontend(Tool)?|MLIRMlirOptMain|bbc)\.dir/.*\.cpp\.o:' \
+      | grep -E '(Fortran(Evaluate|Semantics|Lower|Parser)|FIRCodeGen|flangFrontend(Tool)?|flang|MLIRMlirOptMain|MLIRCAPIRegisterEverything|MLIRLinalgTransforms|bbc|fir-opt|fir-lsp-server|tco)\.dir/.*\.cpp\.o:' \
       | cut -d: -f1 || true)
     if [ ${#OOM_TARGETS[@]} -gt 0 ]; then
       echo "Building ${#OOM_TARGETS[@]} OOM-fragile targets at -j2"
@@ -174,7 +180,7 @@ set -euo pipefail
     echo "--- Phase 3: Flang targets (parallel, OOM files pre-built) ---"
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${FLANG_TARGETS[@]}"
   else
-    # Local: single pass (adequate memory + build-llvm.sh retry handles OOM)
+    # Single pass: all targets at once (use PHASED_BUILD=false to select)
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" \
       "${NON_FLANG_TARGETS[@]}" "${FLANG_TARGETS[@]}"
   fi
@@ -187,7 +193,9 @@ RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   if [ ${LLVM_VER} -ge 20 ]; then
-    FLANG="$(find /tmp/llvm -name flang -type f)"
+    # LLVM >= 20: flang binary is versioned (flang-20) with a 'flang' symlink;
+    # use -L to follow symlinks so find matches both the real file and the symlink
+    FLANG="$(find -L /tmp/llvm -name flang -type f)"
     if [ -z "$FLANG" ]; then
       echo "ERROR: flang not found in /tmp/llvm — Flang build failed?" >&2
       exit 1
