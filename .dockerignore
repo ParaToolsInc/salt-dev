@@ -9,13 +9,17 @@ LICENSE
 /patches/LICENSE
 /patches/.git/
 
-# Dev tooling — not used by any Dockerfile
+# Dev tooling -- not used by any Dockerfile
 /.claude/
 /.devcontainer/
+/.gitattributes
 /.gitignore
 /.gitmodules
 /.actionlint.yaml
 /.hadolint.yaml
 /lint.sh
 /test-build-llvm.sh
+
+# Loose archives -- fetched fresh during build
+*.tgz
 
