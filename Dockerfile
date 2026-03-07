@@ -25,7 +25,6 @@ set -euo pipefail
   cmake --version
 EOC
 
-ARG CI=false
 ARG PHASED_BUILD=true
 ARG LLVM_VER=20
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
@@ -36,7 +35,7 @@ RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   echo "Checking out LLVM."
-  echo "\$CI = $CI"
+  echo "\$PHASED_BUILD = $PHASED_BUILD"
   # Ensure /git exists when not provided by a cache mount
   mkdir -p /git || true
   # If the job is killed during a git operation the cache might be broken
@@ -307,9 +306,9 @@ set -euo pipefail
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=$FLANG_CMD -pdt=/usr/local -pdt_c++=g++ \
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran="$FLANG_CMD" -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
-  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran=$FLANG_CMD -pdt=/usr/local -pdt_c++=g++ \
+  ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran="$FLANG_CMD" -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   cd ..
   rm -rf tau* libdwarf-* otf2-*
