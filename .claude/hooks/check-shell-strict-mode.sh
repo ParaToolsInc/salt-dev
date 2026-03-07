@@ -1,6 +1,6 @@
 #!/bin/bash
 # PostToolUse hook: Ensure shell scripts contain 'set -euo pipefail'.
-# Source: CLAUDE.md - "Shell scripts use set -euo pipefail"
+# Exception: lint.sh uses 'set -uo pipefail' (omits -e for non-fail-fast design).
 
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
