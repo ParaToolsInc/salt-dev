@@ -1,7 +1,7 @@
 #!/bin/bash
 # PostToolUse hook: Lint only the file that was just edited/written.
 # Delegates to lint.sh --file for consistent linter args.
-set -o pipefail
+set -euo pipefail
 
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
