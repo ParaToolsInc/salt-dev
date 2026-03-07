@@ -136,7 +136,7 @@ set -euo pipefail
   )
 
   # LLVM >= 20 renamed the 'flang-new' binary to 'flang' and its install target accordingly
-  if [ ${LLVM_VER} -ge 20 ]; then FLANG_BIN_TARGET=install-flang; else FLANG_BIN_TARGET=install-flang-new; fi
+  if [ "${LLVM_VER}" -ge 20 ]; then FLANG_BIN_TARGET=install-flang; else FLANG_BIN_TARGET=install-flang-new; fi
   FLANG_TARGETS=(
     tools/flang/install
     install-flang-libraries install-flang-headers "$FLANG_BIN_TARGET" install-flang-cmake-exports
@@ -192,7 +192,7 @@ EOC
 RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
-  if [ ${LLVM_VER} -ge 20 ]; then
+  if [ "${LLVM_VER}" -ge 20 ]; then
     # LLVM >= 20: flang binary is versioned (flang-20) with a 'flang' symlink;
     # use -L to follow symlinks so find matches both the real file and the symlink
     FLANG="$(find -L /tmp/llvm -name flang -type f)"
@@ -302,7 +302,7 @@ set -euo pipefail
   # installtau uses ./configure internally which relies on pwd; must cd into tau2
   cd tau2
   # LLVM >= 20 renamed 'flang-new' to 'flang'
-  if [ ${LLVM_VER} -ge 20 ]; then FLANG_CMD=flang; else FLANG_CMD=flang-new; fi
+  if [ "${LLVM_VER}" -ge 20 ]; then FLANG_CMD=flang; else FLANG_CMD=flang-new; fi
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Container definitions for [SALT](https://github.com/ParaToolsInc/salt) CI/CD and dev. Published to Docker Hub (`paratools/salt-dev`) and GHCR (`ghcr.io/paratoolsinc/salt-dev`). No test suite --only linting.
+Container definitions for [SALT](https://github.com/ParaToolsInc/salt) CI/CD and dev. Published to Docker Hub (`paratools/salt-dev`) and GHCR (`ghcr.io/paratoolsinc/salt-dev`). No test suite -- only linting.
 
 ## Commands
 
