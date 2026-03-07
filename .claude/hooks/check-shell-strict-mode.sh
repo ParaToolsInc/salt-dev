@@ -9,7 +9,15 @@ case "$(basename "$CLAUDE_FILE_PATH")" in
   *) exit 0 ;;
 esac
 
-if ! grep -qE '^[^#]*set -euo pipefail' "$CLAUDE_FILE_PATH"; then
-  echo "Convention: shell scripts must include 'set -euo pipefail'. Not found in $CLAUDE_FILE_PATH" >&2
-  exit 1
+# lint.sh intentionally omits -e so all checks run before reporting a summary.
+if [[ "$(basename "$CLAUDE_FILE_PATH")" == "lint.sh" ]]; then
+  if ! grep -qE '^[^#]*set -uo pipefail' "$CLAUDE_FILE_PATH"; then
+    echo "Convention: lint.sh must include 'set -uo pipefail'. Not found in $CLAUDE_FILE_PATH" >&2
+    exit 1
+  fi
+else
+  if ! grep -qE '^[^#]*set -euo pipefail' "$CLAUDE_FILE_PATH"; then
+    echo "Convention: shell scripts must include 'set -euo pipefail'. Not found in $CLAUDE_FILE_PATH" >&2
+    exit 1
+  fi
 fi
