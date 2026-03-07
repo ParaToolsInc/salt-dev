@@ -76,7 +76,7 @@ The devcontainer configuration will build the image automatically and install Gi
 | `build-devtools.sh` | Builds `salt-dev-tools`, optionally installs Intel IFX, and pushes to Docker Hub | `./build-devtools.sh --no-push` |
 | `run-salt-dev.sh` | Launches a `salt-dev` or `salt-dev-tools` container with sensible defaults; resolves git identity and API tokens from the environment | `./run-salt-dev.sh` |
 | `install-intel-ifx.sh` | Installs Intel IFX/ICX/ICPX compilers inside `salt-dev-tools`; handles Debian 13+ APT signature quirks | `./install-intel-ifx.sh 2025.2` |
-| `build-llvm.sh` | OOM-resilient LLVM build wrapper around ninja; maximizes parallelism and auto-recovers by retrying failed targets at progressively lower `-j` | `./build-llvm.sh clang flang-new` |
+| `build-llvm.sh` | OOM-resilient LLVM build wrapper around ninja; maximizes parallelism and auto-recovers by retrying failed targets at progressively lower `-j` | `./build-llvm.sh clang flang` |
 | `test-build-llvm.sh` | Unit and integration tests for `build-llvm.sh` | `./test-build-llvm.sh` |
 | `lint.sh` | Runs all linters: hadolint, shellcheck, actionlint, jq | `./lint.sh` |
 
