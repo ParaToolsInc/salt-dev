@@ -41,15 +41,15 @@ htop, jq, bat, and python3.
 Build using the helper script:
 
 ``` shell
-bash build-devtools.sh --no-push --no-intel   # salt-dev-tools only, no Intel IFX (local)
-bash build-devtools.sh --no-push              # salt-dev-tools + Intel IFX installed (local)
-bash build-devtools.sh                        # build, install IFX, and push to Docker Hub
+./build-devtools.sh --no-push --no-intel   # salt-dev-tools only, no Intel IFX (local)
+./build-devtools.sh --no-push              # salt-dev-tools + Intel IFX installed (local)
+./build-devtools.sh                        # build, install IFX, and push to Docker Hub
 ```
 
 To pin a specific IFX version:
 
 ``` shell
-bash build-devtools.sh --no-push --ifx-version=2025.3 --tag=intel-2025.3
+./build-devtools.sh --no-push --ifx-version=2025.3 --tag=intel-2025.3
 ```
 
 Or build directly with BuildKit (requires a local `salt-dev` image):
@@ -61,7 +61,7 @@ docker buildx build -f Dockerfile.devtools -t salt-dev-tools --load .
 Launch interactively (reads `CLAUDE_CODE_OAUTH_TOKEN` and `GH_TOKEN` from the environment):
 
 ``` shell
-bash run-salt-dev.sh
+./run-salt-dev.sh
 ```
 
 ### VS Code Devcontainer
@@ -73,12 +73,12 @@ The devcontainer configuration will build the image automatically and install Gi
 
 | Script | Description | Example |
 |---|---|---|
-| `build-devtools.sh` | Builds `salt-dev-tools`, optionally installs Intel IFX, and pushes to Docker Hub | `bash build-devtools.sh --no-push` |
-| `run-salt-dev.sh` | Launches a `salt-dev` or `salt-dev-tools` container with sensible defaults; resolves git identity and API tokens from the environment | `bash run-salt-dev.sh` |
+| `build-devtools.sh` | Builds `salt-dev-tools`, optionally installs Intel IFX, and pushes to Docker Hub | `./build-devtools.sh --no-push` |
+| `run-salt-dev.sh` | Launches a `salt-dev` or `salt-dev-tools` container with sensible defaults; resolves git identity and API tokens from the environment | `./run-salt-dev.sh` |
 | `install-intel-ifx.sh` | Installs Intel IFX/ICX/ICPX compilers inside `salt-dev-tools`; handles Debian 13+ APT signature quirks | `./install-intel-ifx.sh 2025.2` |
-| `build-llvm.sh` | OOM-resilient LLVM build wrapper around ninja; maximizes parallelism and auto-recovers by retrying failed targets at progressively lower `-j` | `bash build-llvm.sh clang flang-new` |
-| `test-build-llvm.sh` | Unit and integration tests for `build-llvm.sh` | `bash test-build-llvm.sh` |
-| `lint.sh` | Runs all linters: hadolint, shellcheck, actionlint, jq | `bash lint.sh` |
+| `build-llvm.sh` | OOM-resilient LLVM build wrapper around ninja; maximizes parallelism and auto-recovers by retrying failed targets at progressively lower `-j` | `./build-llvm.sh clang flang-new` |
+| `test-build-llvm.sh` | Unit and integration tests for `build-llvm.sh` | `./test-build-llvm.sh` |
+| `lint.sh` | Runs all linters: hadolint, shellcheck, actionlint, jq | `./lint.sh` |
 
 ## Optimizations for expensive build steps
 

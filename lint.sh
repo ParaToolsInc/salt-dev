@@ -2,29 +2,35 @@
 #
 # lint.sh — Run all linters for the salt-dev repository.
 #
-# Usage: bash lint.sh
+# Usage: ./lint.sh                  # lint all tracked files
+#        ./lint.sh --file PATH      # lint a single file (for hooks)
+#        ./lint.sh --warn-untracked # also warn about unlisted files
+#        ./lint.sh -v               # verbose output
 #
 # Requires: hadolint, shellcheck, actionlint, jq
 # Runs all checks (non-fail-fast) and reports a summary at the end.
 
-# --- Color output when connected to a terminal ---
 # --- Parse flags ---
 VERBOSE=false
-for arg in "$@"; do
-  case $arg in
-    -v|--verbose) VERBOSE=true ;;
-    *) printf "Unknown argument: %s\n" "$arg" >&2; exit 1 ;;
+SINGLE_FILE=""
+WARN_UNTRACKED=false
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -v|--verbose) VERBOSE=true; shift ;;
+    --file) SINGLE_FILE="$2"; shift 2 ;;
+    --warn-untracked) WARN_UNTRACKED=true; shift ;;
+    *) printf "Unknown argument: %s\n" "$1" >&2; exit 1 ;;
   esac
 done
 
 if [[ -t 1 ]]; then
   RED=$'\033[0;31m'
   GREEN=$'\033[0;32m'
-  # YELLOW=$'\033[0;33m'
+  YELLOW=$'\033[0;33m'
   BOLD=$'\033[1m'
   RESET=$'\033[0m'
 else
-  RED='' GREEN='' BOLD='' RESET='' # YELLOW=''
+  RED='' GREEN='' YELLOW='' BOLD='' RESET=''
 fi
 
 # --- File lists ---
@@ -41,9 +47,14 @@ SHELL_SCRIPTS=(
   install-intel-ifx.sh
   run-salt-dev.sh
   test-build-llvm.sh
-  .github/actions/docker-cache/backup.sh
-  .github/actions/docker-cache/restore.sh
-  .github/actions/docker-cache/timing.sh
+  .claude/hooks/block-pipe-to-shell.sh
+  .claude/hooks/lint-changed-file.sh
+  .claude/hooks/check-shell-strict-mode.sh
+  .claude/hooks/check-workflow-expressions.sh
+  .claude/hooks/check-lint-registration.sh
+  .claude/hooks/check-dockerfile-heredoc-strict.sh
+  .claude/hooks/check-unicode-lookalikes.sh
+  .claude/hooks/check-trailing-whitespace.sh
 )
 
 WORKFLOWS=(
@@ -52,6 +63,13 @@ WORKFLOWS=(
 
 JSON_FILES=(
   .devcontainer/devcontainer.json
+  .claude/settings.json
+)
+
+# Tool configs -- validated implicitly by their respective tools at runtime
+CONFIG_FILES=(
+  .actionlint.yaml
+  .hadolint.yaml
 )
 
 # --- Helpers ---
@@ -100,7 +118,7 @@ fi
 # --- Change to repo root ---
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-# --- Run linters ---
+# --- Linter args (shared between single-file and full modes) ---
 # Note: hadolint reports shellcheck violations inside RUN heredocs using the
 # line number of the RUN instruction, not the actual line within the heredoc.
 # Run shellcheck directly on extracted scripts for precise heredoc line numbers.
@@ -111,6 +129,33 @@ if $VERBOSE; then
   HADOLINT_ARGS+=(--format json)
   ACTIONLINT_ARGS+=(-verbose)
 fi
+
+# --- Single-file mode (for hooks) ---
+if [[ -n "$SINGLE_FILE" ]]; then
+  base=$(basename "$SINGLE_FILE")
+  case "$base" in
+    Dockerfile*)  exec hadolint "${HADOLINT_ARGS[@]}" "$SINGLE_FILE" ;;
+    *.sh)         exec shellcheck "${SHELLCHECK_ARGS[@]}" "$SINGLE_FILE" ;;
+    *.yml|*.yaml) exec actionlint "${ACTIONLINT_ARGS[@]}" "$SINGLE_FILE" ;;
+    *.json)       exec jq empty "$SINGLE_FILE" ;;
+    *)            printf "Unknown file type: %s\n" "$SINGLE_FILE" >&2; exit 1 ;;
+  esac
+fi
+
+# --- Validate manifest entries exist ---
+missing_files=()
+for f in "${DOCKERFILES[@]}" "${SHELL_SCRIPTS[@]}" "${WORKFLOWS[@]}" "${JSON_FILES[@]}" "${CONFIG_FILES[@]}"; do
+  [[ -f "$f" ]] || missing_files+=("$f")
+done
+if [[ ${#missing_files[@]} -gt 0 ]]; then
+  printf '%s%sError: files listed in lint.sh but missing from disk:%s\n' "${RED}" "${BOLD}" "${RESET}" >&2
+  printf '  %s\n' "${missing_files[@]}" >&2
+  exit 1
+fi
+
+warnings=0
+
+# --- Full run: all tracked files ---
 run_check "hadolint" hadolint "${HADOLINT_ARGS[@]}" "${DOCKERFILES[@]}"
 run_check "shellcheck" shellcheck "${SHELLCHECK_ARGS[@]}" "${SHELL_SCRIPTS[@]}"
 # Suppressions managed in .actionlint.yaml
@@ -129,12 +174,35 @@ jq_check() {
 }
 run_check "jq (JSON syntax)" jq_check
 
+# --- Warn about untracked lintable files ---
+if [[ "$WARN_UNTRACKED" == true ]]; then
+  manifest_list=$(printf '%s\n' "${DOCKERFILES[@]}" "${SHELL_SCRIPTS[@]}" "${WORKFLOWS[@]}" "${JSON_FILES[@]}" "${CONFIG_FILES[@]}")
+  untracked=()
+  while IFS= read -r f; do
+    if ! printf '%s\n' "$manifest_list" | grep -qxF "$f"; then
+      untracked+=("$f")
+    fi
+  done < <(git ls-files --cached --others --exclude-standard \
+    -- 'Dockerfile*' '**/Dockerfile*' '*.sh' '**/*.sh' '*.yml' '**/*.yml' \
+    '*.yaml' '**/*.yaml' '*.json' '**/*.json' | sort -u)
+  if [[ ${#untracked[@]} -gt 0 ]]; then
+    warnings=${#untracked[@]}
+    printf '\n%s%sWarning: %d file(s) not in lint.sh manifest:%s\n' "${YELLOW}" "${BOLD}" "$warnings" "${RESET}"
+    for f in "${untracked[@]}"; do
+      printf '%s  %s%s\n' "${YELLOW}" "$f" "${RESET}"
+    done
+  fi
+fi
+
 # --- Summary ---
 printf '%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n' "${BOLD}" "${RESET}"
 if [[ $failures -eq 0 ]]; then
   printf '%s%sAll %d checks passed.%s\n' "${GREEN}" "${BOLD}" "$checked" "${RESET}"
 else
   printf '%s%s%d of %d checks failed.%s\n' "${RED}" "${BOLD}" "$failures" "$checked" "${RESET}"
+fi
+if [[ $warnings -gt 0 ]]; then
+  printf '%s%s%d warning(s).%s\n' "${YELLOW}" "${BOLD}" "$warnings" "${RESET}"
 fi
 printf '%s━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n' "${BOLD}" "${RESET}"
 
