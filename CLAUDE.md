@@ -5,19 +5,15 @@ Container definitions for [SALT](https://github.com/ParaToolsInc/salt) CI/CD and
 ## Commands
 
 ```bash
-docker buildx build --pull -t salt-dev --load . # build base image
-docker buildx build -f Dockerfile.devtools -t salt-dev-tools --load . # devtools (requires base)
 git clone --recursive git@github.com:ParaToolsInc/salt-dev.git # patches/ submodule required
-bash lint.sh # run after any Dockerfile/shell/workflow/JSON change
 ```
+
+- `/build` — build Docker images with the salt-8cpu builder
 
 ## Conventions
 
-- Shell scripts use `set -euo pipefail`
 - Hadolint suppressions: prefer inline `# hadolint ignore=DLxxxx` on the line directly above the instruction; put rationale on a separate comment line above
-- When adding new Dockerfiles, shell scripts, workflows, or JSON files, add them to `lint.sh`
-- Supply chain: verify downloads with sha256, pin GPG fingerprints, prefer Debian packages over `curl|bash`
-- In workflow `run:` blocks, use `$GITHUB_REF` not `${{ github.ref }}`, same for SHAs/event values — set as `env:` vars
+- Supply chain: verify downloads with sha256, pin GPG fingerprints
 - Version tags: `v*.*.*` semver
 
 ## Gotchas

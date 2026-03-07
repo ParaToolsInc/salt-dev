@@ -1,23 +1,36 @@
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/block-pipe-to-shell.sh"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
+"PostToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'cd \"$(git rev-parse --show-toplevel)\" && file=\"$CLAUDE_FILE_PATH\"; case \"$file\" in Dockerfile*|*.sh|*.yml|*.yaml|*.json) bash lint.sh 2>&1 | tail -20 ;; esac; exit 0'"
+            "command": "./.claude/hooks/lint-changed-file.sh"
+          },
+          {
+            "type": "command",
+            "command": "./.claude/hooks/check-shell-strict-mode.sh"
+          },
+          {
+            "type": "command",
+            "command": "./.claude/hooks/check-workflow-expressions.sh"
+          },
+          {
+            "type": "command",
+            "command": "./.claude/hooks/check-lint-registration.sh"
+          },
+          {
+            "type": "command",
+            "command": "./.claude/hooks/check-dockerfile-heredoc-strict.sh"
+          },
+          {
+            "type": "command",
+            "command": "./.claude/hooks/check-unicode-lookalikes.sh"
+          },
+          {
+            "type": "command",
+            "command": "./.claude/hooks/check-trailing-whitespace.sh"
           }
         ]
       }

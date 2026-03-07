@@ -1,8 +1,11 @@
 #!/bin/bash
 # PreToolUse hook: Block curl/wget pipe-to-shell patterns
-# Source: Project CLAUDE.md — "prefer Debian-packaged software over curl|bash install scripts"
+# Source: CLAUDE.md - "prefer Debian packages over curl|bash"
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command')
+if ! COMMAND=$(echo "$INPUT" | jq -re '.tool_input.command'); then
+  echo "BLOCKED: invalid JSON input" >&2
+  exit 2
+fi
 
 # Block: curl ... | bash, curl ... | sh, wget ... | bash, wget ... | sh
 # Also catches variants with sudo, env, or flags between the pipe and shell
