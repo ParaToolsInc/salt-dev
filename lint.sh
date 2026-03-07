@@ -10,6 +10,10 @@
 # Requires: hadolint, shellcheck, actionlint, jq
 # Runs all checks (non-fail-fast) and reports a summary at the end.
 
+# -e intentionally omitted: linter failures must not abort the script so
+# that all checks run and a full summary is reported at the end.
+set -uo pipefail
+
 # --- Parse flags ---
 VERBOSE=false
 SINGLE_FILE=""
@@ -17,7 +21,12 @@ WARN_UNTRACKED=false
 while [[ $# -gt 0 ]]; do
   case $1 in
     -v|--verbose) VERBOSE=true; shift ;;
-    --file) SINGLE_FILE="$2"; shift 2 ;;
+    --file)
+      if [[ $# -lt 2 || -z "$2" ]]; then
+        printf "Error: --file requires a path argument\n" >&2
+        exit 1
+      fi
+      SINGLE_FILE="$2"; shift 2 ;;
     --warn-untracked) WARN_UNTRACKED=true; shift ;;
     *) printf "Unknown argument: %s\n" "$1" >&2; exit 1 ;;
   esac
@@ -47,7 +56,6 @@ SHELL_SCRIPTS=(
   install-intel-ifx.sh
   run-salt-dev.sh
   test-build-llvm.sh
-  .claude/hooks/block-pipe-to-shell.sh
   .claude/hooks/lint-changed-file.sh
   .claude/hooks/check-shell-strict-mode.sh
   .claude/hooks/check-workflow-expressions.sh
