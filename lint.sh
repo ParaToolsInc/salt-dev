@@ -144,6 +144,7 @@ if [[ -n "$SINGLE_FILE" ]]; then
   case "$base" in
     Dockerfile*)  exec hadolint "${HADOLINT_ARGS[@]}" "$SINGLE_FILE" ;;
     *.sh)         exec shellcheck "${SHELLCHECK_ARGS[@]}" "$SINGLE_FILE" ;;
+    .actionlint.yaml|.hadolint.yaml) exit 0 ;;  # validated implicitly by their tools
     *.yml|*.yaml) exec actionlint "${ACTIONLINT_ARGS[@]}" "$SINGLE_FILE" ;;
     *.json)       exec jq empty "$SINGLE_FILE" ;;
     *)            printf "Unknown file type: %s\n" "$SINGLE_FILE" >&2; exit 1 ;;
