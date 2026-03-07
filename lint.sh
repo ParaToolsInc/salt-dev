@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# lint.sh — Run all linters for the salt-dev repository.
+# lint.sh -- Run all linters for the salt-dev repository.
 #
 # Usage: ./lint.sh                  # lint all tracked files
 #        ./lint.sh --file PATH      # lint a single file (for hooks)

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# test-build-llvm.sh — Unit and integration tests for build-llvm.sh.
+# test-build-llvm.sh -- Unit and integration tests for build-llvm.sh.
 #
 # Tier 1: Unit tests (parallelism formula + target extraction)
 # Tier 2: Integration tests (mock ninja, OOM recovery flows)

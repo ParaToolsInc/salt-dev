@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 #
-# run-salt-dev.sh — Launch a salt-dev container with sensible defaults.
+# run-salt-dev.sh -- Launch a salt-dev container with sensible defaults.
 #
 # Usage:
 #   bash run-salt-dev.sh [options] [image[:tag]]
