@@ -1,0 +1,2 @@
+# Normalize line endings to LF in the index, use native endings on checkout
+* text=auto

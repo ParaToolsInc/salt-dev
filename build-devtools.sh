@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 #
-# build-devtools.sh — Build the salt-dev-tools image with Intel IFX compilers.
+# build-devtools.sh -- Build the salt-dev-tools image with Intel IFX compilers.
 #
 # Automates the full pipeline: build devtools image from a base image, install
 # Intel IFX inside a temporary container, commit the result, and tag it.
@@ -148,7 +148,7 @@ else
 fi
 
 ###############################################################################
-# Stage 2: Install Intel IFX (local only — not pushed)
+# Stage 2: Install Intel IFX (local only -- not pushed)
 ###############################################################################
 
 if [[ "$INSTALL_INTEL" == true ]]; then

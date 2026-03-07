@@ -12,7 +12,7 @@ USER root
 
 # Create a named salt user with a real home directory
 # GID 967 matches the docker group already in the base image
-# UID is not pinned — use --user at runtime to match host UID for bind mounts
+# UID is not pinned -- use --user at runtime to match host UID for bind mounts
 # chown required: base image WORKDIR creates /home/salt owned by root,
 # and useradd -m does not chown pre-existing directories
 RUN useradd -m -s /bin/bash -g 967 salt \

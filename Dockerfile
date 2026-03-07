@@ -160,7 +160,7 @@ set -euo pipefail
     # Matched by CMake target directory; individual files within these dirs tend to be
     # memory-hungry due to heavy template instantiation in Flang/MLIR.
     #   Flang libs:   FortranEvaluate, FortranSemantics, FortranLower, FortranParser
-    #   Flang driver: flang (fc1_main.cpp.o, driver.cpp.o — worst offender)
+    #   Flang driver: flang (fc1_main.cpp.o, driver.cpp.o -- worst offender)
     #   Flang tools:  bbc, fir-opt, fir-lsp-server, tco
     #   FIR/MLIR:     FIRCodeGen, flangFrontend(Tool), MLIRMlirOptMain,
     #                 MLIRCAPIRegisterEverything, MLIRLinalgTransforms
@@ -197,13 +197,13 @@ set -euo pipefail
     # use -L to follow symlinks so find matches both the real file and the symlink
     FLANG="$(find -L /tmp/llvm -name flang -type f)"
     if [ -z "$FLANG" ]; then
-      echo "ERROR: flang not found in /tmp/llvm — Flang build failed?" >&2
+      echo "ERROR: flang not found in /tmp/llvm -- Flang build failed?" >&2
       exit 1
     fi
   else
     FLANG_NEW="$(find /tmp/llvm -name flang-new -type f)"
     if [ -z "$FLANG_NEW" ]; then
-      echo "ERROR: flang-new not found in /tmp/llvm — Flang build failed?" >&2
+      echo "ERROR: flang-new not found in /tmp/llvm -- Flang build failed?" >&2
       exit 1
     fi
     ln -s flang-new "$(dirname "$FLANG_NEW")/flang"

@@ -31,6 +31,6 @@ Review `Dockerfile` and `Dockerfile.devtools` for the following:
 
 ## Context
 
-Cross-reference with `.hadolint.yaml` for intentionally suppressed rules — do not flag issues that are already documented as acceptable.
+Cross-reference with `.hadolint.yaml` for intentionally suppressed rules -- do not flag issues that are already documented as acceptable.
 
 Report findings grouped by severity: Critical, Warning, Info.

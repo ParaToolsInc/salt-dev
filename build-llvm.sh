@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# build-llvm.sh — Adaptive OOM-resilient LLVM build wrapper around ninja.
+# build-llvm.sh -- Adaptive OOM-resilient LLVM build wrapper around ninja.
 #
 # Maximizes parallelism, auto-recovers from OOM kills by retrying failed
 # targets at progressively lower -j values, and provides CI-friendly
@@ -155,7 +155,7 @@ main() {
     done
 
     if [[ "$recovered" = false ]]; then
-      echo "*** Build failed even at -j1 — likely a real build error" >&2
+      echo "*** Build failed even at -j1 -- likely a real build error" >&2
       return 1
     fi
 
