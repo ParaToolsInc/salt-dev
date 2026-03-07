@@ -167,7 +167,7 @@ jobs:
           file: ./Dockerfile
           pull: true
           build-args: |
-            CI=true
+            PHASED_BUILD=true
             AVAIL_MEM_KB=16567500
             LLVM_VER=${{ env.LLVM_VER }}
             ${{ env.NINJA_MAX_JOBS && format('NINJA_MAX_JOBS={0}', env.NINJA_MAX_JOBS) || '' }}
