@@ -8,7 +8,7 @@ Container definitions for [SALT](https://github.com/ParaToolsInc/salt) CI/CD and
 git clone --recursive git@github.com:ParaToolsInc/salt-dev.git # patches/ submodule required
 ```
 
-- `/build` --build Docker images with the salt-8cpu builder
+- `/build` -- build Docker images with the salt-8cpu builder
 
 ## Conventions
 
