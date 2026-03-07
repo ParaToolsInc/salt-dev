@@ -174,6 +174,115 @@ jq_check() {
 }
 run_check "jq (JSON syntax)" jq_check
 
+# --- Verify CI path-filter covers Dockerfile COPY/ADD sources ---
+# shellcheck disable=SC2329,SC2317  # invoked indirectly via run_check
+ci_filter_check() {
+  local ci_yml=".github/workflows/CI.yml"
+  [[ -f "$ci_yml" ]] || return 0
+
+  # Extract dorny/paths-filter 'build' patterns from CI workflow
+  local filters=()
+  while IFS= read -r val; do
+    val="${val#\'}" ; val="${val%\'}"
+    val="${val#\"}" ; val="${val%\"}"
+    [[ -n "$val" ]] && filters+=("$val")
+  done < <(awk '
+    /filters:[[:space:]]*\|/ { in_f=1; next }
+    in_f && /^[[:space:]]+build:[[:space:]]*$/ { in_b=1; next }
+    in_b && /^[[:space:]]*-[[:space:]]/ {
+      sub(/^[[:space:]]*-[[:space:]]+/, "")
+      sub(/[[:space:]]+$/, "")
+      if ($0 != "") print
+      next
+    }
+    in_b && /^[[:space:]]*$/ { next }
+    in_b { exit }
+  ' "$ci_yml")
+
+  if [[ ${#filters[@]} -eq 0 ]]; then
+    printf "  No 'build:' path-filter found in %s -- skipping\n" "$ci_yml"
+    return 0
+  fi
+
+  local rc=0
+
+  # Extract COPY/ADD source paths from Dockerfiles (skip inter-stage copies)
+  local sources=()
+  for df in "${DOCKERFILES[@]}"; do
+    while IFS= read -r src; do
+      [[ -n "$src" ]] && sources+=("$src")
+    done < <(awk '
+      /^(COPY|ADD)/ && !/--from=/ {
+        line = $0
+        while (line ~ /\\$/) {
+          sub(/\\$/, "", line)
+          if ((getline nl) > 0) line = line " " nl
+        }
+        sub(/^(COPY|ADD)[[:space:]]+/, "", line)
+        while (line ~ /^--[a-z]+=[^ \t]+[ \t]/)
+          sub(/^--[a-z]+=[^ \t]+[ \t]+/, "", line)
+        n = split(line, t)
+        for (i = 1; i < n; i++)
+          if (t[i] != "") print t[i]
+      }
+    ' "$df")
+  done
+
+  # Verify each COPY/ADD source is matched by a filter pattern
+  for src in "${sources[@]}"; do
+    local matched=false
+    for pat in "${filters[@]}"; do
+      # shellcheck disable=SC2053  # intentional glob match
+      if [[ "$src" == $pat ]]; then
+        matched=true
+        break
+      fi
+    done
+    if [[ "$matched" == false ]]; then
+      printf "  COPY/ADD source '%s' not covered by CI path-filter in %s\n" "$src" "$ci_yml"
+      rc=1
+    fi
+  done
+
+  # Verify each Dockerfile is in the filter
+  for df in "${DOCKERFILES[@]}"; do
+    local matched=false
+    for pat in "${filters[@]}"; do
+      # shellcheck disable=SC2053
+      if [[ "$df" == $pat ]]; then
+        matched=true
+        break
+      fi
+    done
+    if [[ "$matched" == false ]]; then
+      printf "  Dockerfile '%s' not in CI path-filter\n" "$df"
+      rc=1
+    fi
+  done
+
+  # Verify submodule paths are in the filter (both gitlink and contents)
+  if [[ -f .gitmodules ]]; then
+    while IFS= read -r sm; do
+      local has_exact=false has_glob=false
+      for pat in "${filters[@]}"; do
+        [[ "$pat" == "$sm" ]] && has_exact=true
+        [[ "$pat" == "${sm}/**" ]] && has_glob=true
+      done
+      if [[ "$has_exact" == false ]]; then
+        printf "  Submodule '%s' (gitlink) not in CI path-filter -- misses pointer updates\n" "$sm"
+        rc=1
+      fi
+      if [[ "$has_glob" == false ]]; then
+        printf "  Submodule '%s/**' (contents) not in CI path-filter\n" "$sm"
+        rc=1
+      fi
+    done < <(git config --file .gitmodules --get-regexp 'submodule\..*\.path' | awk '{print $2}')
+  fi
+
+  return "$rc"
+}
+run_check "CI path-filter coverage" ci_filter_check
+
 # --- Warn about untracked lintable files ---
 if [[ "$WARN_UNTRACKED" == true ]]; then
   manifest_list=$(printf '%s\n' "${DOCKERFILES[@]}" "${SHELL_SCRIPTS[@]}" "${WORKFLOWS[@]}" "${JSON_FILES[@]}" "${CONFIG_FILES[@]}")
