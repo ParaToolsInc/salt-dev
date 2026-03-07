@@ -1,6 +1,6 @@
 #!/bin/bash
 # PostToolUse hook: Flag ${{ github.* }} in workflow run: blocks.
-# Source: CLAUDE.md - "use $GITHUB_REF not ${{ github.ref }}, set as env: vars"
+# These should use shell env vars set via the step's env: key.
 #
 # Checks for ${{ github.* }} on lines inside run: blocks. These should be
 # replaced with shell env vars (e.g., $GITHUB_REF) set via the step's env: key.
