@@ -23,3 +23,4 @@ git clone --recursive git@github.com:ParaToolsInc/salt-dev.git # patches/ submod
 - PDT checksum (`2fc9e86...`) pinned in `Dockerfile` -- update if upstream changes `pdt_lite.tgz`
 - LLVM build: 150-200 min cold, ~4 min with ccache; `ARG PHASED_BUILD=true` enables OOM-aware phased build
 - Intel IFX APT repo has signature verification issues on Debian 13+ (sqv rejects Intel's OpenPGP format); `install-intel-ifx.sh` detects and prompts for `[trusted=yes]`
+- `docker commit` captures the running command as the new `CMD`. After committing a container that ran `install-intel-ifx.sh`, reset `CMD` with: `docker commit --change='CMD ["/bin/bash"]' <container> <image:tag>`

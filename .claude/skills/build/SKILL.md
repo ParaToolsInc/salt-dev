@@ -23,3 +23,7 @@ Build the project Docker images:
 4. If $ARGUMENTS contains "devtools" or "all":
    - Build devtools: `docker buildx build --builder salt-8cpu -f Dockerfile.devtools -t salt-dev-tools --load .`
 5. Report build success/failure and image sizes via `docker images | grep salt-dev`
+6. If $ARGUMENTS contains "intel" or "ifx":
+   - `docker run -it --name salt-ifx salt-dev-tools install-intel-ifx.sh --trust-intel-repo`
+   - **Reset CMD** (docker commit inherits the running command): `docker commit --change='CMD ["/bin/bash"]' salt-ifx salt-dev-tools:intel-<version>`
+   - `docker rm salt-ifx`
