@@ -280,6 +280,12 @@ COPY --from=builder /usr/local/bin/ninja /usr/local/bin/
 # Copy build results of stage 1 to /usr/local.
 COPY --from=builder /tmp/llvm/ /usr/
 
+# Register LLVM per-target runtime dir with the dynamic linker.
+# LLVM normalizes all triples to include the vendor (x86_64-unknown-linux-gnu),
+# which differs from Debian's multiarch path (x86_64-linux-gnu).
+# hadolint ignore=SC2046
+RUN echo /usr/lib/$(clang -dumpmachine) > /etc/ld.so.conf.d/llvm-runtimes.conf && ldconfig
+
 # Setup ccache
 ENV CCACHE_DIR=/home/salt/ccache
 
