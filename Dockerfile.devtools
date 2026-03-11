@@ -73,6 +73,20 @@ RUN claude install
 USER root
 RUN npm uninstall -g @anthropic-ai/claude-code
 
+# Install multithreaded FPM (Fortran Package Manager)
+# install.sh bootstraps fpm from source: downloads a single-file bootstrap,
+# compiles it, then uses it to build the real fpm from the repo with OpenMP.
+# Intentionally unpinned: always install latest FPM from main branch.
+# hadolint ignore=DL3003
+RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
+  git clone --depth 1 https://github.com/fortran-lang/fpm /tmp/fpm
+  cd /tmp/fpm
+  FC=gfortran FFLAGS="-O3 -fopenmp" ./install.sh --prefix=/usr/local
+  rm -rf /tmp/fpm
+EOC
+
 # Copy Intel IFX installer script (run manually when needed)
 COPY install-intel-ifx.sh /usr/local/bin/install-intel-ifx.sh
 RUN chmod +x /usr/local/bin/install-intel-ifx.sh
