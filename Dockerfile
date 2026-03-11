@@ -107,6 +107,14 @@ set -euo pipefail
   ccache -s
 
   # Configure the build
+  # LLVM >= 20: openmp moved from PROJECTS to RUNTIMES (hard error in LLVM 21)
+  if [ "${LLVM_VER}" -ge 20 ]; then
+    LLVM_PROJECTS="flang;clang;clang-tools-extra;mlir"
+    LLVM_RUNTIMES="compiler-rt;openmp"
+  else
+    LLVM_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp"
+    LLVM_RUNTIMES="compiler-rt"
+  fi
   CMAKE_EXTRA_ARGS=()
   if uname -a | grep x86 ; then CMAKE_EXTRA_ARGS+=("-DLLVM_TARGETS_TO_BUILD=X86"); fi
   cmake -GNinja \
@@ -114,8 +122,8 @@ set -euo pipefail
     -DCMAKE_MAKE_PROGRAM=/usr/local/bin/ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_CCACHE_BUILD=On \
-    -DLLVM_ENABLE_PROJECTS="flang;clang;clang-tools-extra;mlir;openmp" \
-    -DLLVM_ENABLE_RUNTIMES="compiler-rt" \
+    -DLLVM_ENABLE_PROJECTS="$LLVM_PROJECTS" \
+    -DLLVM_ENABLE_RUNTIMES="$LLVM_RUNTIMES" \
     "${CMAKE_EXTRA_ARGS[@]}" \
     -S /llvm-project/llvm -B /llvm-project/llvm/build
 
@@ -131,7 +139,6 @@ set -euo pipefail
     install-clang-resource-headers
     install-mlir-headers install-mlir-libraries install-mlir-cmake-exports
     install-openmp-resource-headers
-    install-compiler-rt
   )
 
   # LLVM >= 20 renamed the 'flang-new' binary to 'flang' and its install target accordingly
@@ -142,6 +149,11 @@ set -euo pipefail
     install-flangFrontend install-flangFrontendTool
     install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower
     install-FortranParser install-FortranRuntime install-FortranSemantics
+  )
+
+  RUNTIME_TARGETS=(
+    install-compiler-rt
+    install-omp
   )
 
   ccache -s
@@ -178,10 +190,14 @@ set -euo pipefail
     # Phase 3: Flang targets at full parallelism (OOM .o files pre-built)
     echo "--- Phase 3: Flang targets (parallel, OOM files pre-built) ---"
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${FLANG_TARGETS[@]}"
+
+    # Phase 4: Runtime targets (parallel, requires clang+flang for Fortran modules)
+    echo "--- Phase 4: Runtime targets (parallel) ---"
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${RUNTIME_TARGETS[@]}"
   else
     # Single pass: all targets at once (use PHASED_BUILD=false to select)
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" \
-      "${NON_FLANG_TARGETS[@]}" "${FLANG_TARGETS[@]}"
+      "${NON_FLANG_TARGETS[@]}" "${FLANG_TARGETS[@]}" "${RUNTIME_TARGETS[@]}"
   fi
 
   rm -rf /llvm-project/llvm
