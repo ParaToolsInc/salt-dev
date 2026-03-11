@@ -151,9 +151,11 @@ set -euo pipefail
     install-FortranParser install-FortranRuntime install-FortranSemantics
   )
 
+  # Use install-runtimes (aggregate target) because individual runtime install
+  # targets (e.g. install-omp) aren't forwarded from the ExternalProject sub-build.
+  # Runs after flang so the openmp cmake detects flang and builds Fortran modules.
   RUNTIME_TARGETS=(
-    install-compiler-rt
-    install-omp
+    install-runtimes
   )
 
   ccache -s
