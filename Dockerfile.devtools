@@ -42,16 +42,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 set -euo pipefail
   apt-get update
   apt-get install -y --no-install-recommends \
+    bat \
+    bubblewrap \
     emacs-nox \
+    gdb \
     gh \
+    htop \
+    jq \
     nodejs npm \
+    python3 \
     ripgrep \
     silversearcher-ag \
-    htop \
-    gdb \
-    jq \
-    python3 \
-    bat \
+    socat \
     sudo \
     valgrind
   # Symlink batcat to bat for convenience (Debian name conflict)
@@ -61,10 +63,15 @@ set -euo pipefail
   rm -rf /var/lib/apt/lists/*
 EOC
 
-# Install Claude Code globally via npm
-# Intentionally unpinned: always install latest Claude Code
+# Install Claude Code sandbox runtime globally via npm, then do a
+# native per-user install of Claude Code for the salt user.
+# Intentionally unpinned: always install latest versions
 # hadolint ignore=DL3016
-RUN npm install -g @anthropic-ai/claude-code
+RUN npm install -g @anthropic-ai/claude-code @anthropic-ai/sandbox-runtime
+USER salt
+RUN claude install
+USER root
+RUN npm uninstall -g @anthropic-ai/claude-code
 
 # Copy Intel IFX installer script (run manually when needed)
 COPY install-intel-ifx.sh /usr/local/bin/install-intel-ifx.sh
