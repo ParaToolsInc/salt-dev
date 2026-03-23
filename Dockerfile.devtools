@@ -96,6 +96,8 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Switch to salt user for runtime
+# Explicit HOME survives --user overrides (Docker defaults HOME=/ for unknown UIDs)
+ENV HOME=/home/salt
 USER salt
 WORKDIR /home/salt/src
 

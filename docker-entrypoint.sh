@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+# --- HOME directory guard ---
+# Docker sets HOME=/ for UIDs not in /etc/passwd (e.g., --user "$(id -u):$(id -g)").
+# Fix it so ~ expansion, git config --global, and Claude Code setup all work.
+if [[ -z "${HOME:-}" || "$HOME" == "/" ]]; then
+  export HOME=/home/salt
+fi
+
 # --- Git identity ---
 # Priority: env vars > mounted repo's git config > skip gracefully
 GIT_NAME="${GIT_AUTHOR_NAME:-}"
