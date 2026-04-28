@@ -52,6 +52,7 @@ set -euo pipefail
     nodejs npm \
     python3 \
     ripgrep \
+    shellcheck \
     silversearcher-ag \
     socat \
     sudo \
@@ -73,6 +74,34 @@ RUN claude install
 USER root
 RUN npm uninstall -g @anthropic-ai/claude-code
 
+# Install caveman skill (https://github.com/JuliusBrussee/caveman)
+# Pinned to v1.6.0 commit for supply-chain integrity (no curl|bash).
+# Default mode "full" written to ~/.claude/.caveman-active so statusline shows badge
+# from first launch and caveman-activate.js sees existing state on session start.
+ARG CAVEMAN_REF=c2ed24b3e5d412cd0c25197b2bc9af587621fd99
+USER salt
+# hadolint ignore=DL3003
+RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
+  # Pre-seed settings.json so install.sh's backup step has a file to back up
+  mkdir -p ~/.claude
+  [ -f ~/.claude/settings.json ] || echo '{}' > ~/.claude/settings.json
+  git clone https://github.com/JuliusBrussee/caveman /tmp/caveman
+  cd /tmp/caveman
+  git checkout "${CAVEMAN_REF}"
+  bash hooks/install.sh
+  rm -rf /tmp/caveman
+  echo "full" > ~/.claude/.caveman-active
+  # Merge statusLine + attribution into settings.json caveman just wrote.
+  # statusLine references our portable statusline script; attribution disables
+  # co-author lines in commits/PRs (project policy).
+  jq '.statusLine = {"type":"command","command":"bash ~/.claude/statusline-command.sh"} | .attribution = {"commit":"","pr":""}' \
+    ~/.claude/settings.json > /tmp/settings.json
+  mv /tmp/settings.json ~/.claude/settings.json
+EOC
+USER root
+
 # Install multithreaded FPM (Fortran Package Manager)
 # install.sh bootstraps fpm from source: downloads a single-file bootstrap,
 # compiles it, then uses it to build the real fpm from the repo with OpenMP.
@@ -87,9 +116,30 @@ set -euo pipefail
   rm -rf /tmp/fpm
 EOC
 
+# Install actionlint (GitHub Actions workflow linter)
+# https://github.com/rhysd/actionlint/releases
+ARG ACTIONLINT_VERSION=1.7.11
+ARG ACTIONLINT_SHA256=900919a84f2229bac68ca9cd4103ea297abc35e9689ebb842c6e34a3d1b01b0a
+RUN <<EOC
+#!/usr/bin/env bash
+set -euo pipefail
+  curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+    -o /tmp/actionlint.tar.gz
+  echo "${ACTIONLINT_SHA256}  /tmp/actionlint.tar.gz" | sha256sum -c -
+  tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin actionlint
+  chmod +x /usr/local/bin/actionlint
+  rm /tmp/actionlint.tar.gz
+EOC
+
 # Copy Intel IFX installer script (run manually when needed)
 COPY install-intel-ifx.sh /usr/local/bin/install-intel-ifx.sh
 RUN chmod +x /usr/local/bin/install-intel-ifx.sh
+
+# Copy Claude Code statusline script (installed into ~/.claude/ by entrypoint)
+COPY claude-statusline.sh /usr/local/share/claude/statusline-command.sh
+
+# Copy user-level CLAUDE.md (installed into ~/.claude/ by entrypoint)
+COPY claude-user-CLAUDE.md /usr/local/share/claude/CLAUDE.md
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
