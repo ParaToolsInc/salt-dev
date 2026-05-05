@@ -100,6 +100,7 @@ set -euo pipefail
     ~/.claude/settings.json > /tmp/settings.json
   mv /tmp/settings.json ~/.claude/settings.json
 EOC
+
 USER root
 
 # Install multithreaded FPM (Fortran Package Manager)

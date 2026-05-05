@@ -48,6 +48,8 @@ jobs:
               - 'build-llvm.sh'
               - 'docker-entrypoint.sh'
               - 'install-intel-ifx.sh'
+              - 'claude-statusline.sh'
+              - 'claude-user-CLAUDE.md'
               - 'patches'
               - 'patches/**'
               - '.dockerignore'
