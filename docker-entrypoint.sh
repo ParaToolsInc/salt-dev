@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+# --- HOME directory guard ---
+# Docker sets HOME=/ for UIDs not in /etc/passwd (e.g., --user "$(id -u):$(id -g)").
+# Fix it so ~ expansion, git config --global, and Claude Code setup all work.
+if [[ -z "${HOME:-}" || "$HOME" == "/" ]]; then
+  export HOME=/home/salt
+fi
+
 # --- Git identity ---
 # Priority: env vars > mounted repo's git config > skip gracefully
 GIT_NAME="${GIT_AUTHOR_NAME:-}"
@@ -44,8 +51,18 @@ fi
 # co-authorship lines in commits/PRs.
 if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
   mkdir -p ~/.claude
+  # Install statusline script from image into user config
+  if [ -f /usr/local/share/claude/statusline-command.sh ]; then
+    cp /usr/local/share/claude/statusline-command.sh ~/.claude/statusline-command.sh
+  fi
+  # Install user-level CLAUDE.md from image (skip if user already has one)
+  if [ -f /usr/local/share/claude/CLAUDE.md ] && [ ! -f ~/.claude/CLAUDE.md ]; then
+    cp /usr/local/share/claude/CLAUDE.md ~/.claude/CLAUDE.md
+  fi
   if [ ! -f ~/.claude/settings.json ]; then
-    printf '{"attribution":{"commit":"","pr":""}}\n' > ~/.claude/settings.json
+    cat > ~/.claude/settings.json <<'SETTINGS'
+{"attribution":{"commit":"","pr":""},"statusLine":{"type":"command","command":"bash ~/.claude/statusline-command.sh"}}
+SETTINGS
   fi
 fi
 

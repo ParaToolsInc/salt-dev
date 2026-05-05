@@ -4,6 +4,7 @@ Dockerfile.devtools
 **/.DS_Store
 /.github/
 *.md
+!claude-user-CLAUDE.md
 LICENSE
 /patches/README.md
 /patches/LICENSE
