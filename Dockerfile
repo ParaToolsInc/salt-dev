@@ -26,7 +26,7 @@ set -euo pipefail
 EOC
 
 ARG PHASED_BUILD=true
-ARG LLVM_VER=20
+ARG LLVM_VER=21
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 # cd inside heredoc script; WORKDIR can't replace it
 # RUN --mount=type=cache,target=/git <<EO
@@ -210,7 +210,7 @@ RUN <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
   if [ "${LLVM_VER}" -ge 20 ]; then
-    # LLVM >= 20: flang binary is versioned (flang-20) with a 'flang' symlink;
+    # LLVM >= 20: flang binary is versioned (flang-${LLVM_VER}) with a 'flang' symlink;
     # use -L to follow symlinks so find matches both the real file and the symlink
     FLANG="$(find -L /tmp/llvm -name flang -type f)"
     if [ -z "$FLANG" ]; then
@@ -301,7 +301,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
-ARG LLVM_VER=20
+ARG LLVM_VER=21
 # hadolint ignore=DL3003
 RUN --mount=type=cache,id=ccache-tau,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
