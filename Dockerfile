@@ -26,7 +26,7 @@ set -euo pipefail
 EOC
 
 ARG PHASED_BUILD=true
-ARG LLVM_VER=21
+ARG LLVM_VER=22
 # Clone LLVM repo. A shallow clone is faster, but pulling a cached repository is faster yet
 # cd inside heredoc script; WORKDIR can't replace it
 # RUN --mount=type=cache,target=/git <<EO
@@ -156,7 +156,10 @@ set -euo pipefail
   )
   # LLVM >= 21 renamed FortranCommon -> FortranSupport, and FortranRuntime moved
   # to the flang-rt subproject (built via install-runtimes).
-  if [ "${LLVM_VER}" -ge 21 ]; then
+  # LLVM >= 22 added FortranUtils (flang/lib/Utils, OpenMP do-concurrent helper).
+  if [ "${LLVM_VER}" -ge 22 ]; then
+    FLANG_TARGETS+=(install-FortranSupport install-FortranUtils)
+  elif [ "${LLVM_VER}" -ge 21 ]; then
     FLANG_TARGETS+=(install-FortranSupport)
   else
     FLANG_TARGETS+=(install-FortranCommon install-FortranRuntime)
@@ -184,13 +187,14 @@ set -euo pipefail
     # Matched by CMake target directory; individual files within these dirs tend to be
     # memory-hungry due to heavy template instantiation in Flang/MLIR.
     #   Flang libs:   FortranEvaluate, FortranSemantics, FortranLower, FortranParser
+    #   Flang libs (LLVM >= 22): FortranUtils (single OpenMP.cpp w/ heavy MLIR headers)
     #   Flang driver: flang (fc1_main.cpp.o, driver.cpp.o -- worst offender)
     #   Flang tools:  bbc, fir-opt, fir-lsp-server, tco
     #   FIR/MLIR:     FIRCodeGen, flangFrontend(Tool), MLIRMlirOptMain,
     #                 MLIRCAPIRegisterEverything, MLIRLinalgTransforms
     echo "--- Phase 2: OOM-fragile object files (-j2) ---"
     mapfile -t OOM_TARGETS < <(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
-      | grep -E '(Fortran(Evaluate|Semantics|Lower|Parser)|FIRCodeGen|flangFrontend(Tool)?|flang|MLIRMlirOptMain|MLIRCAPIRegisterEverything|MLIRLinalgTransforms|bbc|fir-opt|fir-lsp-server|tco)\.dir/.*\.cpp\.o:' \
+      | grep -E '(Fortran(Evaluate|Semantics|Lower|Parser|Utils)|FIRCodeGen|flangFrontend(Tool)?|flang|MLIRMlirOptMain|MLIRCAPIRegisterEverything|MLIRLinalgTransforms|bbc|fir-opt|fir-lsp-server|tco)\.dir/.*\.cpp\.o:' \
       | cut -d: -f1 || true)
     if [ ${#OOM_TARGETS[@]} -gt 0 ]; then
       echo "Building ${#OOM_TARGETS[@]} OOM-fragile targets at -j2"
@@ -312,7 +316,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # http://tau.uoregon.edu/tau.tgz
 # http://fs.paratools.com/tau-mirror/tau.tgz
 # http://fs.paratools.com/tau-nightly.tgz
-ARG LLVM_VER=21
+ARG LLVM_VER=22
 # hadolint ignore=DL3003
 RUN --mount=type=cache,id=ccache-tau,target=/home/salt/ccache <<EOC
 #!/usr/bin/env bash
