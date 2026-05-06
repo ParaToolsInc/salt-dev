@@ -4,6 +4,7 @@
 # Intentional Unicode (e.g., box-drawing chars in terminal output) is NOT matched.
 set -euo pipefail
 
+CLAUDE_FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
 case "$(basename "$CLAUDE_FILE_PATH")" in

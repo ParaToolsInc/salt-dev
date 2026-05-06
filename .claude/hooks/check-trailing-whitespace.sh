@@ -3,6 +3,7 @@
 # Markdown exception: trailing two spaces after text (line break) is allowed.
 set -euo pipefail
 
+CLAUDE_FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
 # Skip binary files

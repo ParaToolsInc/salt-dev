@@ -3,6 +3,7 @@
 # Delegates to lint.sh --file for consistent linter args.
 set -euo pipefail
 
+CLAUDE_FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
 cd "$(git rev-parse --show-toplevel)" || exit 1

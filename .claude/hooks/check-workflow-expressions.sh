@@ -4,7 +4,9 @@
 #
 # Checks for ${{ github.* }} on lines inside run: blocks. These should be
 # replaced with shell env vars (e.g., $GITHUB_REF) set via the step's env: key.
+set -euo pipefail
 
+CLAUDE_FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
 case "$(basename "$CLAUDE_FILE_PATH")" in
@@ -15,13 +17,13 @@ esac
 # Use awk to find ${{ github.* }} only inside run: blocks.
 # Track indentation to detect when a run: block ends.
 violations=$(awk '
-  /^[[:space:]]+run:[[:space:]]*[|>]/ {
+  /^[[:space:]]+(-[[:space:]]+)?run:[[:space:]]*[|>]/ {
     in_run = 1
     match($0, /^[[:space:]]*/)
     run_indent = RLENGTH
     next
   }
-  /^[[:space:]]+run:[[:space:]]*[^|>]/ {
+  /^[[:space:]]+(-[[:space:]]+)?run:[[:space:]]*[^|>]/ {
     # Single-line run: value
     if ($0 ~ /\$\{\{[[:space:]]*github\./) print NR": "$0
     next
