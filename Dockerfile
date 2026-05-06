@@ -108,7 +108,11 @@ set -euo pipefail
 
   # Configure the build
   # LLVM >= 20: openmp moved from PROJECTS to RUNTIMES (hard error in LLVM 21)
-  if [ "${LLVM_VER}" -ge 20 ]; then
+  # LLVM >= 21: flang/runtime split into flang-rt subproject; build via RUNTIMES
+  if [ "${LLVM_VER}" -ge 21 ]; then
+    LLVM_PROJECTS="flang;clang;clang-tools-extra;mlir"
+    LLVM_RUNTIMES="compiler-rt;openmp;flang-rt"
+  elif [ "${LLVM_VER}" -ge 20 ]; then
     LLVM_PROJECTS="flang;clang;clang-tools-extra;mlir"
     LLVM_RUNTIMES="compiler-rt;openmp"
   else
@@ -147,9 +151,16 @@ set -euo pipefail
     tools/flang/install
     install-flang-libraries install-flang-headers "$FLANG_BIN_TARGET" install-flang-cmake-exports
     install-flangFrontend install-flangFrontendTool
-    install-FortranCommon install-FortranDecimal install-FortranEvaluate install-FortranLower
-    install-FortranParser install-FortranRuntime install-FortranSemantics
+    install-FortranDecimal install-FortranEvaluate install-FortranLower
+    install-FortranParser install-FortranSemantics
   )
+  # LLVM >= 21 renamed FortranCommon -> FortranSupport, and FortranRuntime moved
+  # to the flang-rt subproject (built via install-runtimes).
+  if [ "${LLVM_VER}" -ge 21 ]; then
+    FLANG_TARGETS+=(install-FortranSupport)
+  else
+    FLANG_TARGETS+=(install-FortranCommon install-FortranRuntime)
+  fi
 
   # Use install-runtimes (aggregate target) because individual runtime install
   # targets (e.g. install-omp) aren't forwarded from the ExternalProject sub-build.
