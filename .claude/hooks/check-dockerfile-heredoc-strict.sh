@@ -3,6 +3,7 @@
 # Source: CLAUDE.md - "Dockerfile RUN heredocs use set -euo pipefail"
 set -euo pipefail
 
+CLAUDE_FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
 case "$(basename "$CLAUDE_FILE_PATH")" in

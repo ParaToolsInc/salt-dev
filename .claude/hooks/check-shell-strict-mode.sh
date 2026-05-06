@@ -1,7 +1,9 @@
 #!/bin/bash
 # PostToolUse hook: Ensure shell scripts contain 'set -euo pipefail'.
 # Exception: lint.sh uses 'set -uo pipefail' (omits -e for non-fail-fast design).
+set -euo pipefail
 
+CLAUDE_FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [[ -z "$CLAUDE_FILE_PATH" ]] && exit 0
 
 case "$(basename "$CLAUDE_FILE_PATH")" in
