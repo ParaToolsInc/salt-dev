@@ -162,6 +162,26 @@ jobs:
           # (e.g., PR refs "1/merge" or branch "feature/foo" contain invalid "/" chars)
           echo "ref=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_OUTPUT"
       -
+        name: Compute parent cache ref
+        id: parent-cache
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # On PRs, warm cache from the PR's target branch.
+          # On branch pushes (non-default), warm from default branch.
+          # On default-branch pushes (and tags), no parent -- shared :buildcache covers it.
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            parent="${BASE_REF}"
+          elif [[ "${GITHUB_REF}" != "refs/heads/${DEFAULT_BRANCH}" \
+                && "${GITHUB_REF}" != refs/tags/* ]]; then
+            parent="${DEFAULT_BRANCH}"
+          else
+            parent=""
+          fi
+          parent="${parent//\//-}"
+          echo "ref=${parent}" >> "$GITHUB_OUTPUT"
+      -
         name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -177,6 +197,7 @@ jobs:
           tags:  ${{ steps.meta.outputs.tags }}
           cache-from: |
             type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache
+            ${{ steps.parent-cache.outputs.ref && format('type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-{0}', steps.parent-cache.outputs.ref) || '' }}
             type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-${{ steps.cache-tag.outputs.ref }}
           cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev:buildcache-${{ steps.cache-tag.outputs.ref }},mode=max
       -
@@ -268,6 +289,26 @@ jobs:
             echo "tag=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
           fi
       -
+        name: Compute parent cache ref
+        id: parent-cache
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # On PRs, warm cache from the PR's target branch.
+          # On branch pushes (non-default), warm from default branch.
+          # On default-branch pushes (and tags), no parent -- shared :buildcache covers it.
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            parent="${BASE_REF}"
+          elif [[ "${GITHUB_REF}" != "refs/heads/${DEFAULT_BRANCH}" \
+                && "${GITHUB_REF}" != refs/tags/* ]]; then
+            parent="${DEFAULT_BRANCH}"
+          else
+            parent=""
+          fi
+          parent="${parent//\//-}"
+          echo "ref=${parent}" >> "$GITHUB_OUTPUT"
+      -
         name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -280,6 +321,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: |
             type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache
+            ${{ steps.parent-cache.outputs.ref && format('type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache-{0}', steps.parent-cache.outputs.ref) || '' }}
             type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache-${{ steps.cache-tag.outputs.ref }}
           cache-to: type=registry,ref=ghcr.io/paratoolsinc/salt-dev-tools:buildcache-${{ steps.cache-tag.outputs.ref }},mode=max
       -
