@@ -93,7 +93,7 @@ ARG NINJA_MAX_JOBS=""
 # Default to ~19 GB for local docker builds
 ARG AVAIL_MEM_KB=20000000
 
-# Configure and build LLVM/Clang components needed by SALT
+# Configure and build LLVM/Clang components needed by SALT-FM
 RUN --mount=type=cache,id=ccache-builder,target=/ccache <<EOC
 #!/usr/bin/env bash
 set -euo pipefail
