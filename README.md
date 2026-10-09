@@ -2,12 +2,12 @@
 
 [![ci](https://github.com/ParaToolsInc/salt-dev/actions/workflows/CI.yml/badge.svg)](https://github.com/ParaToolsInc/salt-dev/actions/workflows/CI.yml)
 
-Container definitions for [SALT] development.
+Container definitions for [SALT-FM] development.
 
-This repository defines and deploys the containers used for [SALT] continuous integration (CI) and local development.
+This repository defines and deploys the containers used for [SALT-FM] continuous integration (CI) and local development.
 
-LLVM/Clang patches needed by [SALT] for minimal LLVM/Clang builds are shared between this repository
-and [SALT] using a [git submodule].
+LLVM/Clang patches needed by [SALT-FM] for minimal LLVM/Clang builds are shared between this repository
+and [SALT-FM] using a [git submodule].
 The patches are stored here: https://github.com/ParaToolsInc/salt-llvm-patches
 
 ## Building the development container for local use
@@ -24,13 +24,13 @@ Build with BuildKit:
 docker buildx build --pull -t salt-dev --load .
 ```
 
-Run against a local SALT worktree:
+Run against a local SALT-FM worktree:
 
 ``` shell
 docker run -it --tmpfs=/dev/shm:rw,nosuid,nodev,exec --privileged -v $(pwd):/home/salt/src salt-dev
 ```
 
-This mounts the working directory (usually your SALT worktree) into `/home/salt/src`.
+This mounts the working directory (usually your SALT-FM worktree) into `/home/salt/src`.
 
 ### Dev Tools image (`salt-dev-tools`)
 
@@ -110,5 +110,5 @@ The CI uses a two-layer registry cache strategy: each branch writes to a per-bra
 On push to `main`, a second build step promotes the branch cache to the shared tag,
 keeping a warm cache available to all branches and new contributors.
 
-[SALT]: https://github.com/ParaToolsInc/salt
+[SALT-FM]: https://github.com/ParaToolsInc/SALT-FM
 [git submodule]: https://git-scm.com/book/en/v2/Git-Tools-Submodules
