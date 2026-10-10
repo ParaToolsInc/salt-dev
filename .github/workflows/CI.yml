@@ -291,7 +291,9 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
+            # Match docker/metadata-action, which replaces "/" with "-"
+            branch="${GITHUB_REF#refs/heads/}"
+            echo "tag=${branch//\//-}" >> "$GITHUB_OUTPUT"
           fi
       -
         name: Compute parent cache ref
