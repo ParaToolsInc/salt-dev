@@ -227,7 +227,12 @@ jobs:
 
   build-devtools:
     needs: [lint, build-base]
-    if: github.event_name != 'pull_request'
+    # always() is required: on schedule and tag events the skipped `changes`
+    # job (an ancestor via build-base) otherwise skips this job too.
+    if: >-
+      always()
+      && needs.build-base.result == 'success'
+      && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       -
