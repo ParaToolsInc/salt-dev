@@ -137,12 +137,14 @@ set -euo pipefail
   if [ -n "${NINJA_MAX_JOBS:-}" ]; then BUILD_LLVM_ARGS+=(--max-jobs "${NINJA_MAX_JOBS}"); fi
   if [ -n "${AVAIL_MEM_KB:-}" ]; then BUILD_LLVM_ARGS+=(--avail-mem-kb "${AVAIL_MEM_KB}"); fi
 
-  NON_FLANG_TARGETS=(
+  LLVM_CLANG_TARGETS=(
     install-llvm-libraries install-llvm-headers install-llvm-config install-cmake-exports
     install-clang-libraries install-clang-headers install-clang install-clang-cmake-exports
     install-clang-resource-headers
-    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports
     install-openmp-resource-headers
+  )
+  MLIR_TARGETS=(
+    install-mlir-headers install-mlir-libraries install-mlir-cmake-exports
   )
 
   # LLVM >= 20 renamed the 'flang-new' binary to 'flang' and its install target accordingly
@@ -178,11 +180,36 @@ set -euo pipefail
 
     echo "=== Phased LLVM build (OOM-aware) ==="
 
-    # Phase 1: Non-Flang targets at full parallelism (no OOM risk)
-    echo "--- Phase 1: Non-Flang targets (parallel) ---"
-    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${NON_FLANG_TARGETS[@]}"
+    # Build the object files matching regex $1 at -j2 (prerequisites built as needed)
+    build_oom_objects() {
+      local -a objs
+      mapfile -t objs < <(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
+        | grep -E "$1" | cut -d: -f1 || true)
+      if [ ${#objs[@]} -gt 0 ]; then
+        echo "Building ${#objs[@]} OOM-fragile targets at -j2"
+        printf '%s\n' "${objs[@]}"
+        ninja -C "$BUILD_DIR" -j2 "${objs[@]}"
+      else
+        echo "WARNING: No OOM-fragile targets found (pattern may need updating)"
+      fi
+    }
 
-    # Phase 2: OOM-fragile .o files at -j2
+    # Phase 1: LLVM and Clang targets at full parallelism
+    echo "--- Phase 1: LLVM and Clang targets (parallel) ---"
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${LLVM_CLANG_TARGETS[@]}"
+
+    # Phase 2: MLIR TableGen headers at full parallelism, then OOM-fragile MLIR
+    # .o files at -j2. Files from OOM failures on CI (-j4, 4.1 GB) and local
+    # (-j8, 2.5 GB); each pulls in very large generated op definitions.
+    echo "--- Phase 2: MLIR headers (parallel), OOM-fragile MLIR files (-j2) ---"
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" mlir-headers
+    build_oom_objects '(MLIR(LLVM|NVVM|ROCDL)Dialect\.dir/IR/(LLVM|NVVM|ROCDL)Dialect|MLIRSPIRVDialect\.dir/SPIRV(Dialect|OpDefinition)|MLIRLinalgDialect\.dir/LinalgDialect|MLIRLinalgTransforms\.dir/TilingInterfaceImpl|MLIROpenACCDialect\.dir/OpenACC|MLIRSparseTensorPipelines\.dir/SparseTensorPipelines|MLIRRegisterAll(Dialects|Passes)\.dir/RegisterAll(Dialects|Passes)|MLIRCAPIRegisterEverything\.dir/RegisterEverything|MLIRMlirOptMain\.dir/mlir-opt)\.cpp\.o:'
+
+    # Phase 3: MLIR targets at full parallelism (OOM .o files pre-built)
+    echo "--- Phase 3: MLIR targets (parallel, OOM files pre-built) ---"
+    build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${MLIR_TARGETS[@]}"
+
+    # Phase 4: OOM-fragile Flang .o files at -j2
     # Targets discovered from OOM failures on CI (-j4, 4.1 GB) and local (-j8, 2.5 GB).
     # Matched by CMake target directory; individual files within these dirs tend to be
     # memory-hungry due to heavy template instantiation in Flang/MLIR.
@@ -190,31 +217,21 @@ set -euo pipefail
     #   Flang libs (LLVM >= 22): FortranUtils (single OpenMP.cpp w/ heavy MLIR headers)
     #   Flang driver: flang (fc1_main.cpp.o, driver.cpp.o -- worst offender)
     #   Flang tools:  bbc, fir-opt, fir-lsp-server, tco
-    #   FIR/MLIR:     FIRCodeGen, flangFrontend(Tool), MLIRMlirOptMain,
-    #                 MLIRCAPIRegisterEverything, MLIRLinalgTransforms
-    echo "--- Phase 2: OOM-fragile object files (-j2) ---"
-    mapfile -t OOM_TARGETS < <(ninja -C "$BUILD_DIR" -t targets all 2>/dev/null \
-      | grep -E '(Fortran(Evaluate|Semantics|Lower|Parser|Utils)|FIRCodeGen|flangFrontend(Tool)?|flang|MLIRMlirOptMain|MLIRCAPIRegisterEverything|MLIRLinalgTransforms|bbc|fir-opt|fir-lsp-server|tco)\.dir/.*\.cpp\.o:' \
-      | cut -d: -f1 || true)
-    if [ ${#OOM_TARGETS[@]} -gt 0 ]; then
-      echo "Building ${#OOM_TARGETS[@]} OOM-fragile targets at -j2"
-      printf '%s\n' "${OOM_TARGETS[@]}"
-      ninja -C "$BUILD_DIR" -j2 "${OOM_TARGETS[@]}"
-    else
-      echo "WARNING: No OOM-fragile targets found (pattern may need updating)"
-    fi
+    #   FIR:          FIRCodeGen, flangFrontend(Tool)
+    echo "--- Phase 4: OOM-fragile Flang object files (-j2) ---"
+    build_oom_objects '(Fortran(Evaluate|Semantics|Lower|Parser|Utils)|FIRCodeGen|flangFrontend(Tool)?|flang|bbc|fir-opt|fir-lsp-server|tco)\.dir/.*\.cpp\.o:'
 
-    # Phase 3: Flang targets at full parallelism (OOM .o files pre-built)
-    echo "--- Phase 3: Flang targets (parallel, OOM files pre-built) ---"
+    # Phase 5: Flang targets at full parallelism (OOM .o files pre-built)
+    echo "--- Phase 5: Flang targets (parallel, OOM files pre-built) ---"
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${FLANG_TARGETS[@]}"
 
-    # Phase 4: Runtime targets (parallel, requires clang+flang for Fortran modules)
-    echo "--- Phase 4: Runtime targets (parallel) ---"
+    # Phase 6: Runtime targets (parallel, requires clang+flang for Fortran modules)
+    echo "--- Phase 6: Runtime targets (parallel) ---"
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" "${RUNTIME_TARGETS[@]}"
   else
     # Single pass: all targets at once (use PHASED_BUILD=false to select)
     build-llvm.sh "${BUILD_LLVM_ARGS[@]}" \
-      "${NON_FLANG_TARGETS[@]}" "${FLANG_TARGETS[@]}" "${RUNTIME_TARGETS[@]}"
+      "${LLVM_CLANG_TARGETS[@]}" "${MLIR_TARGETS[@]}" "${FLANG_TARGETS[@]}" "${RUNTIME_TARGETS[@]}"
   fi
 
   rm -rf /llvm-project/llvm
