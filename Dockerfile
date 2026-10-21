@@ -358,14 +358,27 @@ set -euo pipefail
   cd tau2
   # LLVM >= 20 renamed 'flang-new' to 'flang'
   if [ "${LLVM_VER}" -ge 20 ]; then FLANG_CMD=flang; else FLANG_CMD=flang-new; fi
+  # Debian's `mpifort -show` adds gfortran compile flags, which TAU copies into
+  # its MPI Fortran link flags; clang++ and flang reject them
+  for f in -fallow-invalid-boz -fstack-protector-strong -fstack-clash-protection -fcf-protection; do
+    sed -i "s/s@-fallow-argument-mismatch@@g/&;s@${f}@@g/" configure
+    grep -q "s@${f}@@g" configure
+  done
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
   ./installtau -prefix=/usr/local -cc=gcc -c++=g++ -fortran=gfortran -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
   ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran="$FLANG_CMD" -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -j
+  # Point the MPICH wrappers at Clang; TAU takes its compilers from `mpicc -show`
+  MPICH_CC=clang MPICH_CXX=clang++ MPICH_FC="$FLANG_CMD" \
   ./installtau -prefix=/usr/local -cc=clang -c++=clang++ -fortran="$FLANG_CMD" -pdt=/usr/local -pdt_c++=g++ \
     -bfd=download -unwind=download -dwarf=download -otf=download -zlib=download -pthread -mpi -j
+  # installtau exits 0 even when a configuration fails to install
+  for m in /usr/local/x86_64/lib/Makefile.tau-*; do
+    test -f "/usr/local/x86_64/lib/static${m##*/Makefile.tau}/libTauPthreadWrap.a" \
+      || { echo "ERROR: TAU configuration ${m##*/} did not fully install"; exit 1; }
+  done
   cd ..
   rm -rf tau* libdwarf-* otf2-*
   ccache -s
