@@ -27,7 +27,7 @@ set -euo pipefail
   apt-get install -y --no-install-recommends curl gpg
   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/gh-cli.gpg
   gpg --with-colons --import-options show-only --import /tmp/gh-cli.gpg 2>/dev/null \
-    | grep -q "fpr:::::::::2C6106201985B60E6C7AC87323F3D4EA75716059:" \
+    | grep -q "fpr:::::::::7F38BBB59D064DBCB3D84D725612B36462313325:" \
     || { echo "ERROR: GitHub CLI GPG key fingerprint mismatch!"; exit 1; }
   gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg < /tmp/gh-cli.gpg
   rm /tmp/gh-cli.gpg

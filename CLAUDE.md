@@ -19,7 +19,7 @@ git clone --recursive git@github.com:ParaToolsInc/salt-dev.git # patches/ submod
 ## Gotchas
 
 - Same-repo PRs can read base-branch `actions/cache` entries via `restore-keys`; fork PRs cannot
-- GitHub CLI GPG key fingerprint (`2C61...6059`) pinned in `Dockerfile.devtools` -- **expires 2026-09-04**
+- GitHub CLI GPG key fingerprint (`7F38...3325`) pinned in `Dockerfile.devtools` -- no expiry; GitHub rotated from the expired `2C61...6059` key in 2026
 - PDT checksum (`2fc9e86...`) pinned in `Dockerfile` -- update if upstream changes `pdt_lite.tgz`
 - LLVM build: 150-200 min cold, ~4 min with ccache; `ARG PHASED_BUILD=true` enables OOM-aware phased build
 - Intel IFX APT repo has signature verification issues on Debian 13+ (sqv rejects Intel's OpenPGP format); `install-intel-ifx.sh` detects and prompts for `[trusted=yes]`
